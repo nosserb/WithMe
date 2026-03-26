@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Spoteur - Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<header class="page-header card">
+		<div class="page-header-left">
+			<div class="brand-inline">
+				<img src="img/spotifylogoN.svg" alt="Spoteur" />
+				<p class="eyebrow">SPOTEUR DASHBOARD</p>
+			</div>
+			<h1>Interface musicale professionnelle</h1>
+			<p class="header-sub">Une vue claire de tes playlists, de tes artistes favoris et de ton écoute en cours.</p>
+		</div>
+		<div class="header-actions">
+			<button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Activer le mode sombre">Mode sombre</button>
+			<a class="login-top-btn" href="login.html">Connexion</a>
+		</div>
+	</header>
+
+	<div class="app-shell">
+		<aside class="sidebar card">
+			<div class="brand">
+				<img src="img/spotifylogoB.svg" alt="Spoteur logo" class="brand-mark" />
+				<h1>Spoteur</h1>
+			</div>
+
+			<nav class="menu-block">
+				<h2>Menu</h2>
+				<a href="#" class="menu-item active">Accueil</a>
+				<a href="#" class="menu-item">Recherche</a>
+				<a href="#" class="menu-item">Bibliotheque</a>
+			</nav>
+
+			<nav class="menu-block">
+				<h2>Playlists</h2>
+				<a href="#" class="menu-item">Daily Pulse</a>
+				<a href="#" class="menu-item">After Midnight</a>
+				<a href="#" class="menu-item">French Touch Mix</a>
+				<a href="#" class="menu-item">Coding Focus</a>
+			</nav>
+
+			<div class="side-track">
+				<img src="img/current-track.svg" alt="Current track" />
+				<div>
+					<strong>Chaise Lounge</strong>
+					<p>Wet Leg</p>
+				</div>
+			</div>
+		</aside>
+
+		<main class="main-content card">
+			<header class="top-bar">
+				<div>
+					<p class="greet">Bonjour</p>
+					<h2>Accueil</h2>
+				</div>
+				<div class="top-actions">
+					<button class="icon-btn" aria-label="Notifications">i</button>
+					<button class="avatar-btn" aria-label="Profile">AL</button>
+				</div>
+			</header>
+
+			<section class="content-columns">
+				<div class="left-feed">
+					<section class="quick-grid">
+						<button class="quick-card" data-title="The Get Up" data-artist="Lo Prime" data-cover="img/cover-getup.svg">
+							<img src="img/cover-getup.svg" alt="The Get Up" />
+							<span>The Get Up</span>
+						</button>
+						<button class="quick-card" data-title="Time Capsule" data-artist="Nora Fade" data-cover="img/cover-timecapsule.svg">
+							<img src="img/cover-timecapsule.svg" alt="Time Capsule" />
+							<span>Time Capsule</span>
+						</button>
+						<button class="quick-card" data-title="DJ" data-artist="Lime Venus" data-cover="img/cover-dj.svg">
+							<img src="img/cover-dj.svg" alt="DJ" />
+							<span>DJ</span>
+						</button>
+						<button class="quick-card" data-title="Daily Drive" data-artist="Nova Valley" data-cover="img/cover-dailydrive.svg">
+							<img src="img/cover-dailydrive.svg" alt="Daily Drive" />
+							<span>Daily Drive</span>
+						</button>
+						<button class="quick-card" data-title="Viral Hits" data-artist="Various Artists" data-cover="img/cover-viralhits.svg">
+							<img src="img/cover-viralhits.svg" alt="Viral Hits" />
+							<span>Viral Hits</span>
+						</button>
+						<button class="quick-card" data-title="The Answer" data-artist="Arc Miles" data-cover="img/cover-answer.svg">
+							<img src="img/cover-answer.svg" alt="The Answer" />
+							<span>The Answer</span>
+						</button>
+					</section>
+
+					<section class="section-head">
+						<h3>Recently Played</h3>
+						<a href="#">Show all</a>
+					</section>
+					<section class="album-row">
+						<article class="album-card" data-title="Electric Feeling" data-artist="Solar Club" data-cover="img/cover-electric.svg">
+							<img src="img/cover-electric.svg" alt="Electric Feeling" />
+							<h4>Electric Feeling</h4>
+							<p>Solar Club</p>
+						</article>
+						<article class="album-card" data-title="Breakaway" data-artist="Classio" data-cover="img/cover-breakaway.svg">
+							<img src="img/cover-breakaway.svg" alt="Breakaway" />
+							<h4>Breakaway</h4>
+							<p>Classio</p>
+						</article>
+						<article class="album-card" data-title="Staycation" data-artist="Elvis Freshly" data-cover="img/cover-staycation.svg">
+							<img src="img/cover-staycation.svg" alt="Staycation" />
+							<h4>Staycation</h4>
+							<p>Elvis Freshly</p>
+						</article>
+						<article class="album-card" data-title="Pick It Up" data-artist="Michael Minelli" data-cover="img/cover-pickitup.svg">
+							<img src="img/cover-pickitup.svg" alt="Pick It Up" />
+							<h4>Pick It Up</h4>
+							<p>Michael Minelli</p>
+						</article>
+					</section>
+				</div>
+
+				<div class="insight-column">
+					<section class="insight-card ranking-card">
+						<div class="insight-head">
+							<h3>Classement artistes preferes</h3>
+							<small>Top selon popularite Spotify</small>
+						</div>
+						<ol id="rankingList" class="ranking-list">
+							<li><span>#1</span><strong>Daft Punk</strong><em>Pop: 86</em></li>
+							<li><span>#2</span><strong>Stromae</strong><em>Pop: 82</em></li>
+							<li><span>#3</span><strong>Angele</strong><em>Pop: 79</em></li>
+							<li><span>#4</span><strong>Orelsan</strong><em>Pop: 76</em></li>
+							<li><span>#5</span><strong>Phoenix</strong><em>Pop: 73</em></li>
+						</ol>
+					</section>
+				</div>
+			</section>
+		</main>
+
+		<aside class="artist-panel card">
+			<h3>Focus Artist</h3>
+			<img id="focusCover" class="artist-cover" src="img/artist-focus.svg" alt="Artist cover" />
+			<div class="artist-meta">
+				<h4 id="focusTitle">Chaise Lounge</h4>
+				<p id="focusArtist">Wet Leg</p>
+			</div>
+			<div class="artist-stats">
+				<span id="focusListeners">2 859 648 monthly listeners</span>
+			</div>
+			<button class="follow-btn">Follow</button>
+		</aside>
+	</div>
+
+	<footer class="player-bar card">
+		<div class="now-playing">
+			<img id="playerCover" src="img/cover-electric.svg" alt="Now playing" />
+			<div>
+				<h5 id="playerTitle">Electric Feeling</h5>
+				<p id="playerArtist">Solar Club</p>
+			</div>
+		</div>
+
+		<div class="player-controls">
+			<div class="control-row">
+				<button class="mini-btn" aria-label="Previous"><<</button>
+				<button id="playToggle" class="play-btn" aria-label="Play or Pause">Play</button>
+				<button class="mini-btn" aria-label="Next">>></button>
+			</div>
+			<div class="progress-wrap">
+				<span>0:37</span>
+				<div class="progress-track"><span id="progressFill"></span></div>
+				<span>3:14</span>
+			</div>
+		</div>
+
+		<div class="volume-box">
+			<span>Volume</span>
+			<input id="volume" type="range" min="0" max="100" value="75" />
+		</div>
+	</footer>
+
+	<script src="script.js"></script>
+</body>
+</html>

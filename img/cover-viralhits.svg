@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-label="Viral Hits cover">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff512f"/>
+      <stop offset="100%" stop-color="#dd2476"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" fill="url(#g)"/>
+  <polygon points="45,130 80,58 150,45 220,75 248,148 215,220 130,250 62,210" fill="#ffffff" fill-opacity="0.2"/>
+  <text x="26" y="252" fill="#fff5f8" font-size="33" font-family="Arial, sans-serif" font-weight="700">VIRAL HITS</text>
+</svg>

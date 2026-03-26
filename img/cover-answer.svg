@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-label="The Answer cover">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f4037"/>
+      <stop offset="100%" stop-color="#99f2c8"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" fill="url(#g)"/>
+  <path d="M52 210 L145 70 L244 210 Z" fill="#ffffff" fill-opacity="0.26"/>
+  <text x="26" y="252" fill="#f4fffb" font-size="33" font-family="Arial, sans-serif" font-weight="700">THE ANSWER</text>
+</svg>

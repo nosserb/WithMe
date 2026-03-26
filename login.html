@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Connexion - Spoteur</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+	<style>
+		:root {
+			--bg-main: #05070b;
+			--text: #f4f8ff;
+			--muted: #9eacbf;
+			--line: #2a3445;
+			--accent: #1ed760;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			display: grid;
+			place-items: center;
+			font-family: "Space Grotesk", sans-serif;
+			color: var(--text);
+			background:
+				radial-gradient(circle at 20% 20%, #1b4a34 0, rgba(27, 74, 52, 0) 35%),
+				radial-gradient(circle at 80% 10%, #153058 0, rgba(21, 48, 88, 0) 36%),
+				var(--bg-main);
+			padding: 20px;
+		}
+
+		.auth-card {
+			width: 100%;
+			max-width: 420px;
+			padding: 22px;
+			border-radius: 18px;
+			background: linear-gradient(165deg, rgba(27, 35, 48, 0.92), rgba(15, 21, 30, 0.9));
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+		}
+
+		h1 {
+			margin: 0 0 6px;
+			font-family: "Bebas Neue", sans-serif;
+			font-size: 2rem;
+			font-weight: 400;
+			letter-spacing: 1px;
+		}
+
+		p {
+			margin: 0 0 18px;
+			color: var(--muted);
+		}
+
+		form {
+			display: grid;
+			gap: 10px;
+		}
+
+		input {
+			width: 100%;
+			padding: 11px;
+			border-radius: 10px;
+			border: 1px solid var(--line);
+			background: rgba(11, 16, 24, 0.9);
+			color: var(--text);
+		}
+
+		button,
+		.back-link {
+			display: inline-block;
+			text-align: center;
+			text-decoration: none;
+			padding: 10px 12px;
+			border-radius: 999px;
+			font-weight: 700;
+		}
+
+		button {
+			border: 0;
+			cursor: pointer;
+			background: linear-gradient(120deg, var(--accent), #5de79a);
+			color: #04250f;
+		}
+
+		.back-link {
+			margin-top: 10px;
+			background: rgba(255, 255, 255, 0.12);
+			color: var(--text);
+		}
+	</style>
+</head>
+<body>
+	<section class="auth-card">
+		<h1>Connexion</h1>
+		<p>Accede a ton espace Spoteur pour suivre tes artistes.</p>
+		<form>
+			<input type="email" placeholder="Adresse email" required />
+			<input type="password" placeholder="Mot de passe" required />
+			<button type="submit">Se connecter</button>
+		</form>
+		<a class="back-link" href="index.html">Retour au dashboard</a>
+	</section>
+</body>
+</html>

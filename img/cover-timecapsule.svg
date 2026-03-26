@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-label="Time Capsule cover">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f2027"/>
+      <stop offset="100%" stop-color="#2c5364"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" fill="url(#g)"/>
+  <rect x="60" y="60" width="180" height="180" rx="20" fill="#9ed0ff" fill-opacity="0.22"/>
+  <text x="26" y="250" fill="#e8f5ff" font-size="33" font-family="Arial, sans-serif" font-weight="700">TIME CAPSULE</text>
+</svg>

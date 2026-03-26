@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-label="Daily Drive cover">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#134e5e"/>
+      <stop offset="100%" stop-color="#71b280"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" fill="url(#g)"/>
+  <path d="M40 200 Q150 120 260 200" stroke="#ffffff" stroke-opacity="0.45" stroke-width="18" fill="none"/>
+  <text x="26" y="252" fill="#f4fff7" font-size="32" font-family="Arial, sans-serif" font-weight="700">DAILY DRIVE</text>
+</svg>

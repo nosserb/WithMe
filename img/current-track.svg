@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Current track">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#g)"/>
+  <path d="M40 148 Q70 96 100 148 Q130 96 160 148" stroke="#ffffff" stroke-width="12" fill="none" stroke-linecap="round"/>
+</svg>
