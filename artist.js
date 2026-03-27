@@ -132,6 +132,7 @@ async function fetchConcerts(artistName) {
 	}
 
 	const baseUrl = "https://app.ticketmaster.com/discovery/v2/events.json";
+	const startDateTime = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 	const params = new URLSearchParams({
 		apikey: ticketmasterKey,
 		keyword: artistName,
@@ -141,16 +142,18 @@ async function fetchConcerts(artistName) {
 		locale: "*",
 		includeTBA: "no",
 		includeTBD: "no",
-		startDateTime: new Date().toISOString()
+		startDateTime
 	});
 
 	const directUrl = `${baseUrl}?${params.toString()}`;
-	const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-	const urlsToTry = [directUrl, proxiedUrl];
+	const proxiedUrls = [
+		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`
+	];
 
 	try {
 		let events = null;
-		for (const url of urlsToTry) {
+		for (const url of proxiedUrls) {
 			try {
 				const response = await fetch(url);
 				if (!response.ok) {
@@ -160,7 +163,10 @@ async function fetchConcerts(artistName) {
 					continue;
 				}
 				const payload = await response.json();
-				const eventItems = payload?._embedded?.events;
+				const normalizedPayload = typeof payload?.contents === "string"
+					? JSON.parse(payload.contents)
+					: payload;
+				const eventItems = normalizedPayload?._embedded?.events;
 				if (Array.isArray(eventItems)) {
 					events = eventItems;
 					break;
