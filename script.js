@@ -16,17 +16,32 @@ let isPlaying = false;
 let progress = 22;
 let timer = null;
 
+function setCookie(name, value, maxAgeSeconds) {
+	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+}
+
+function getCookie(name) {
+	const parts = document.cookie ? document.cookie.split("; ") : [];
+	for (const part of parts) {
+		const [key, ...rest] = part.split("=");
+		if (key === name) {
+			return decodeURIComponent(rest.join("="));
+		}
+	}
+	return "";
+}
+
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
 	if (themeToggle) {
-		themeToggle.textContent = isDark ? "Mode clair" : "Mode sombre";
+		themeToggle.textContent = isDark ? "Clair" : "Sombre";
 		themeToggle.setAttribute("aria-label", isDark ? "Activer le mode clair" : "Activer le mode sombre");
 	}
 }
 
 function initTheme() {
-	const storedTheme = localStorage.getItem("spoteur-theme");
+	const storedTheme = getCookie("spoteur-theme");
 	const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 	const initialTheme = storedTheme || (prefersDark ? "dark" : "light");
 	applyTheme(initialTheme);
@@ -34,7 +49,7 @@ function initTheme() {
 
 function setPlaybackState(playing) {
 	isPlaying = playing;
-	playToggle.textContent = isPlaying ? "Pause" : "Play";
+	playToggle.textContent = isPlaying ? "Pause" : "Lecture";
 }
 
 function tickProgress() {
@@ -91,7 +106,7 @@ if (themeToggle) {
 		const isDark = document.body.classList.contains("dark-mode");
 		const nextTheme = isDark ? "light" : "dark";
 		applyTheme(nextTheme);
-		localStorage.setItem("spoteur-theme", nextTheme);
+		setCookie("spoteur-theme", nextTheme, 60 * 60 * 24 * 365);
 	});
 }
 
