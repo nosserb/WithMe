@@ -4,6 +4,8 @@ const playerTitle = document.getElementById("playerTitle");
 const playerArtist = document.getElementById("playerArtist");
 const playerCover = document.getElementById("playerCover");
 const themeToggle = document.getElementById("themeToggle");
+const welcomeTitle = document.getElementById("welcomeTitle");
+const greetLine = document.getElementById("greetLine");
 
 const focusCover = document.getElementById("focusCover");
 const focusTitle = document.getElementById("focusTitle");
@@ -78,6 +80,21 @@ function updateFocusPanel(title, artist, cover) {
 	focusListeners.textContent = "Live listeners estimate available soon";
 }
 
+function initWelcome() {
+	const displayName = getCookie("spoteur-display-name").trim();
+	if (!displayName) {
+		return;
+	}
+
+	if (welcomeTitle) {
+		welcomeTitle.textContent = `Bonjour, ${displayName}`;
+	}
+
+	if (greetLine) {
+		greetLine.textContent = `Bonjour, ${displayName}`;
+	}
+}
+
 playToggle.addEventListener("click", () => {
 	setPlaybackState(!isPlaying);
 });
@@ -111,4 +128,5 @@ if (themeToggle) {
 }
 
 initTheme();
+initWelcome();
 startProgressLoop();
