@@ -31,6 +31,37 @@ function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
 }
 
+function normalizeArtistKey(value) {
+	return String(value || "").trim().toLowerCase();
+}
+
+function cacheArtistStats(artist) {
+	if (!artist?.id && !artist?.name) {
+		return;
+	}
+
+	const snapshot = {
+		id: String(artist.id || "").trim(),
+		name: String(artist.name || "").trim(),
+		followers: { total: Number(artist.followers?.total || 0) },
+		popularity: Number(artist.popularity || 0),
+		genres: Array.isArray(artist.genres) ? artist.genres.slice(0, 6) : [],
+		images: Array.isArray(artist.images) ? artist.images.slice(0, 1) : []
+	};
+
+	try {
+		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const store = JSON.parse(raw);
+		if (snapshot.id) {
+			store[`id:${snapshot.id}`] = snapshot;
+		}
+		if (snapshot.name) {
+			store[`name:${normalizeArtistKey(snapshot.name)}`] = snapshot;
+		}
+		localStorage.setItem("spoteur-artist-stats-v1", JSON.stringify(store));
+	} catch (e) {}
+}
+
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
@@ -86,6 +117,7 @@ function createArtistCard(artist) {
 	const followersRaw = String(Number(artist.followers?.total || 0));
 	const popularityRaw = String(Number(artist.popularity || 0));
 	const genresRaw = (artist.genres || []).slice(0, 4).join("|");
+	cacheArtistStats(artist);
 	const card = document.createElement("article");
 	card.className = "result-card";
 	card.innerHTML = `

@@ -49,6 +49,54 @@ function getArtistNameHint() {
 	return (params.get("name") || "").trim();
 }
 
+function normalizeArtistKey(value) {
+	return String(value || "").trim().toLowerCase();
+}
+
+function getCachedArtistSeed(id, nameHint = "") {
+	const normalizedName = normalizeArtistKey(nameHint);
+	if (!id && !normalizedName) {
+		return null;
+	}
+
+	try {
+		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const store = JSON.parse(raw);
+		const byId = id ? store[`id:${id}`] : null;
+		const byName = normalizedName ? store[`name:${normalizedName}`] : null;
+		return byId || byName || null;
+	} catch (e) {
+		return null;
+	}
+}
+
+function cacheArtistStats(artist) {
+	if (!artist?.id && !artist?.name) {
+		return;
+	}
+
+	const snapshot = {
+		id: String(artist.id || "").trim(),
+		name: String(artist.name || "").trim(),
+		followers: { total: Number(artist.followers?.total || 0) },
+		popularity: Number(artist.popularity || 0),
+		genres: Array.isArray(artist.genres) ? artist.genres.slice(0, 6) : [],
+		images: Array.isArray(artist.images) ? artist.images.slice(0, 1) : []
+	};
+
+	try {
+		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const store = JSON.parse(raw);
+		if (snapshot.id) {
+			store[`id:${snapshot.id}`] = snapshot;
+		}
+		if (snapshot.name) {
+			store[`name:${normalizeArtistKey(snapshot.name)}`] = snapshot;
+		}
+		localStorage.setItem("spoteur-artist-stats-v1", JSON.stringify(store));
+	} catch (e) {}
+}
+
 function getArtistSeedFromQuery() {
 	const params = new URLSearchParams(window.location.search);
 	const id = (params.get("id") || "").trim();
@@ -576,6 +624,7 @@ async function initArtistPage() {
 	const id = getArtistId();
 	const nameHint = getArtistNameHint();
 	const artistSeed = getArtistSeedFromQuery();
+	const artistCacheSeed = getCachedArtistSeed(id, nameHint);
 	if (!id) {
 		setStatus("Aucun id artiste fourni.", true);
 		return;
@@ -606,6 +655,9 @@ async function initArtistPage() {
 		if (!initialArtist && artistSeed) {
 			initialArtist = artistSeed;
 		}
+		if (!initialArtist && artistCacheSeed) {
+			initialArtist = artistCacheSeed;
+		}
 		if (!initialArtist) {
 			if (artistRequestForbidden) {
 				throw settled[0].reason;
@@ -615,6 +667,9 @@ async function initArtistPage() {
 
 		if (artistSeed) {
 			initialArtist = mergeArtistStats(initialArtist, artistSeed);
+		}
+		if (artistCacheSeed) {
+			initialArtist = mergeArtistStats(initialArtist, artistCacheSeed);
 		}
 
 		let artist = initialArtist;
@@ -668,6 +723,7 @@ async function initArtistPage() {
 		}
 
 		await fetchConcerts(artist.name);
+		cacheArtistStats(artist);
 
 		if (topTracksForbidden) {
 			setStatus("Artiste charge. Les top morceaux ne sont pas accessibles avec ce token Spotify (403).", true);
