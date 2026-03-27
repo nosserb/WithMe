@@ -83,6 +83,9 @@ function createArtistCard(artist) {
 	const cover = artist.images?.[0]?.url || "img/artist-focus.svg";
 	const followers = new Intl.NumberFormat("fr-FR").format(artist.followers?.total || 0);
 	const artistName = artist.name || "";
+	const followersRaw = String(Number(artist.followers?.total || 0));
+	const popularityRaw = String(Number(artist.popularity || 0));
+	const genresRaw = (artist.genres || []).slice(0, 4).join("|");
 	const card = document.createElement("article");
 	card.className = "result-card";
 	card.innerHTML = `
@@ -92,7 +95,7 @@ function createArtistCard(artist) {
 			<p>${artist.genres?.slice(0, 2).join(", ") || "Genre non precise"}</p>
 			<small>${followers} followers · Popularite ${artist.popularity || 0}</small>
 		</div>
-		<a class="detail-link" href="artist.html?id=${encodeURIComponent(artist.id)}&name=${encodeURIComponent(artistName)}">Voir la fiche</a>
+		<a class="detail-link" href="artist.html?id=${encodeURIComponent(artist.id)}&name=${encodeURIComponent(artistName)}&followers=${encodeURIComponent(followersRaw)}&popularity=${encodeURIComponent(popularityRaw)}&genres=${encodeURIComponent(genresRaw)}&image=${encodeURIComponent(cover)}">Voir la fiche</a>
 	`;
 	return card;
 }

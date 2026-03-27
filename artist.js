@@ -49,6 +49,30 @@ function getArtistNameHint() {
 	return (params.get("name") || "").trim();
 }
 
+function getArtistSeedFromQuery() {
+	const params = new URLSearchParams(window.location.search);
+	const id = (params.get("id") || "").trim();
+	const name = (params.get("name") || "").trim();
+	const followers = Number(params.get("followers") || "0");
+	const popularity = Number(params.get("popularity") || "0");
+	const genresRaw = (params.get("genres") || "").trim();
+	const image = (params.get("image") || "").trim();
+	const genres = genresRaw ? genresRaw.split("|").map((g) => g.trim()).filter(Boolean) : [];
+
+	if (!id && !name) {
+		return null;
+	}
+
+	return {
+		id: id || "",
+		name: name || "Artiste",
+		followers: { total: Number.isFinite(followers) ? Math.max(0, followers) : 0 },
+		popularity: Number.isFinite(popularity) ? Math.max(0, popularity) : 0,
+		genres,
+		images: image ? [{ url: image }] : []
+	};
+}
+
 function renderArtist(artist, topTracks) {
 	const cover = artist.images?.[0]?.url || "img/artist-focus.svg";
 	const followersValue = Number(artist.followers?.total || 0);
@@ -486,7 +510,7 @@ async function enrichArtistDataByName(artist, token) {
 	return full || artist;
 }
 
-async function enrichArtistStatsBySearch(artist, token, nameHint = "") {
+async function enrichArtistStatsBySearch(artist, token, nameHint = "", preferredId = "") {
 	const targetName = (artist?.name || nameHint || "").trim();
 	if (!targetName) {
 		return artist;
@@ -499,6 +523,13 @@ async function enrichArtistStatsBySearch(artist, token, nameHint = "") {
 	const candidates = payload?.artists?.items || [];
 	if (!candidates.length) {
 		return artist;
+	}
+
+	if (preferredId) {
+		const exactById = candidates.find((item) => item?.id === preferredId);
+		if (exactById) {
+			return mergeArtistStats(artist, exactById);
+		}
 	}
 
 	const targetNorm = normalizeName(targetName);
@@ -544,6 +575,7 @@ async function fetchTopTracksBySearchFallback(artist, token) {
 async function initArtistPage() {
 	const id = getArtistId();
 	const nameHint = getArtistNameHint();
+	const artistSeed = getArtistSeedFromQuery();
 	if (!id) {
 		setStatus("Aucun id artiste fourni.", true);
 		return;
@@ -571,11 +603,18 @@ async function initArtistPage() {
 		if (!initialArtist && !artistRequestForbidden) {
 			initialArtist = await fetchArtistBySeveralEndpoint(id, token);
 		}
+		if (!initialArtist && artistSeed) {
+			initialArtist = artistSeed;
+		}
 		if (!initialArtist) {
 			if (artistRequestForbidden) {
 				throw settled[0].reason;
 			}
 			throw settled[0].status === "rejected" ? settled[0].reason : new Error("spotify_error_404");
+		}
+
+		if (artistSeed) {
+			initialArtist = mergeArtistStats(initialArtist, artistSeed);
 		}
 
 		let artist = initialArtist;
@@ -591,7 +630,7 @@ async function initArtistPage() {
 		}
 		if (isArtistStatsMissing(artist)) {
 			try {
-				artist = await enrichArtistStatsBySearch(artist, token, nameHint);
+				artist = await enrichArtistStatsBySearch(artist, token, nameHint, artist?.id || id);
 			} catch (e) {}
 		}
 
