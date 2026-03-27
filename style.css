@@ -636,3 +636,202 @@ body {
 		display: none;
 	}
 }
+
+.page-main,
+.detail-main {
+	padding: 16px;
+}
+
+.search-toolbar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 170px auto;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.search-input,
+.search-select {
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+}
+
+.search-status {
+	margin: 0 0 14px;
+	font-size: 0.88rem;
+	color: var(--muted);
+}
+
+.result-grid {
+	display: grid;
+	gap: 10px;
+	margin-bottom: 18px;
+}
+
+.result-card {
+	display: grid;
+	grid-template-columns: 64px minmax(0, 1fr) auto;
+	gap: 10px;
+	align-items: center;
+	padding: 10px;
+	background: var(--surface-soft);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+}
+
+.result-card img {
+	width: 64px;
+	height: 64px;
+	border-radius: 8px;
+	object-fit: cover;
+	background: var(--surface);
+	border: 1px solid var(--line);
+}
+
+.result-card h4 {
+	margin: 0 0 2px;
+	font-size: 0.95rem;
+}
+
+.result-card p {
+	margin: 0;
+	font-size: 0.84rem;
+	color: var(--muted);
+}
+
+.result-card small {
+	display: block;
+	margin-top: 4px;
+	color: var(--muted);
+	font-size: 0.78rem;
+}
+
+.detail-link {
+	text-decoration: none;
+	padding: 8px 10px;
+	border-radius: 7px;
+	background: var(--primary);
+	color: var(--inverse-text);
+	font-size: 0.8rem;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.empty-result {
+	margin: 0;
+	padding: 10px;
+	border: 1px dashed var(--line);
+	border-radius: 8px;
+	color: var(--muted);
+	background: var(--surface-soft);
+}
+
+.list-title {
+	margin: 0 0 10px;
+	font-size: 1rem;
+}
+
+.detail-layout {
+	display: grid;
+	grid-template-columns: 250px minmax(0, 1fr);
+	gap: 16px;
+	align-items: start;
+	margin-top: 6px;
+}
+
+.detail-cover {
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	object-fit: cover;
+	border-radius: 10px;
+	border: 1px solid var(--line);
+	background: var(--surface-soft);
+}
+
+.detail-body h2 {
+	margin: 0 0 10px;
+	font-size: 1.35rem;
+}
+
+.detail-body p {
+	margin: 0 0 8px;
+	font-size: 0.9rem;
+	color: var(--text);
+}
+
+.inline-link {
+	color: var(--primary);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.inline-link:hover {
+	text-decoration: underline;
+}
+
+.audio-wrap {
+	margin-top: 8px;
+}
+
+.audio-wrap audio {
+	width: 100%;
+	max-width: 360px;
+}
+
+.muted {
+	color: var(--muted);
+	font-size: 0.84rem;
+}
+
+.simple-list {
+	margin: 6px 0 0;
+	padding-left: 18px;
+	display: grid;
+	gap: 6px;
+	font-size: 0.88rem;
+}
+
+.concert-block {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+}
+
+.concert-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 8px;
+}
+
+.concert-list li {
+	padding: 9px;
+	border-radius: 8px;
+	background: var(--surface-soft);
+	border: 1px solid var(--line);
+	font-size: 0.85rem;
+}
+
+.concert-list strong {
+	display: block;
+	margin-bottom: 2px;
+	font-size: 0.9rem;
+}
+
+.concert-list span {
+	color: var(--muted);
+}
+
+@media (max-width: 960px) {
+	.search-toolbar {
+		grid-template-columns: 1fr;
+	}
+
+	.detail-layout {
+		grid-template-columns: 1fr;
+	}
+}

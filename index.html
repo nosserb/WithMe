@@ -35,7 +35,7 @@
 			<nav class="menu-block">
 				<h2>Menu</h2>
 				<a href="#" class="menu-item active">Accueil</a>
-				<a href="#" class="menu-item">Recherche</a>
+				<a href="search.html" class="menu-item">Recherche</a>
 				<a href="#" class="menu-item">Bibliotheque</a>
 			</nav>
 
@@ -168,14 +168,14 @@
 
 		<div class="player-controls">
 			<div class="control-row">
-				<button class="mini-btn" aria-label="Previous"><<</button>
+				<button id="prevBtn" class="mini-btn" aria-label="Previous"><<</button>
 				<button id="playToggle" class="play-btn" aria-label="Lecture ou pause">Lecture</button>
-				<button class="mini-btn" aria-label="Next">>></button>
+				<button id="nextBtn" class="mini-btn" aria-label="Next">>></button>
 			</div>
 			<div class="progress-wrap">
-				<span>0:37</span>
+				<span id="playerCurrentTime">0:00</span>
 				<div class="progress-track"><span id="progressFill"></span></div>
-				<span>3:14</span>
+				<span id="playerDuration">0:00</span>
 			</div>
 		</div>
 
@@ -185,6 +185,7 @@
 		</div>
 	</footer>
 
+	<script src="spotify-config.js"></script>
 	<script src="script.js"></script>
 </body>
 </html>

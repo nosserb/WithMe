@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Spoteur - Recherche</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<header class="page-header card">
+		<div class="page-header-left">
+			<div class="brand-inline">
+				<img src="img/spotifylogoN.svg" alt="Spoteur" />
+				<p class="eyebrow">Spoteur</p>
+			</div>
+			<h1>Recherche Spotify</h1>
+			<p class="header-sub">Trouve un morceau ou un artiste, puis ouvre la fiche detaillee.</p>
+		</div>
+		<div class="header-actions">
+			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
+			<a class="login-top-btn" href="index.html">Accueil</a>
+		</div>
+	</header>
+
+	<main class="card page-main">
+		<section class="search-toolbar">
+			<input id="searchInput" class="search-input" type="text" placeholder="Rechercher un artiste ou un titre" />
+			<select id="searchType" class="search-select">
+				<option value="track,artist">Tout</option>
+				<option value="track">Morceaux</option>
+				<option value="artist">Artistes</option>
+			</select>
+			<button id="searchBtn" class="login-top-btn" type="button">Rechercher</button>
+		</section>
+		<p id="searchStatus" class="search-status">Connecte-toi puis lance une recherche.</p>
+
+		<section id="tracksSection">
+			<h3 class="list-title">Morceaux</h3>
+			<div id="trackResults" class="result-grid"></div>
+		</section>
+
+		<section id="artistsSection">
+			<h3 class="list-title">Artistes</h3>
+			<div id="artistResults" class="result-grid"></div>
+		</section>
+	</main>
+
+	<script src="spotify-config.js"></script>
+	<script src="spotify-auth.js"></script>
+	<script src="search.js"></script>
+</body>
+</html>
