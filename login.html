@@ -103,6 +103,7 @@
 			<button id="spotifyConnectBtn" type="submit">Se connecter avec Spotify</button>
 		</form>
 		<p id="statusText" aria-live="polite"></p>
+		<p id="redirectInfo"></p>
 		<a class="back-link" href="index.html">Retour au dashboard</a>
 	</section>
 
@@ -110,10 +111,14 @@
 	<script>
 		const spotifyLoginForm = document.getElementById("spotifyLoginForm");
 		const statusText = document.getElementById("statusText");
+		const redirectInfo = document.getElementById("redirectInfo");
 		const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
-		const SPOTIFY_REDIRECT_URI = window.SPOTEUR_CONFIG?.redirectUri || `${window.location.origin}${window.location.pathname}`;
+		const CURRENT_LOGIN_URI = `${window.location.origin}${window.location.pathname}`;
+		const CONFIG_REDIRECT_URI = (window.SPOTEUR_CONFIG?.redirectUri || "").trim();
+		const SPOTIFY_REDIRECT_URI = CONFIG_REDIRECT_URI || CURRENT_LOGIN_URI;
 
 		const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+		const OAUTH_TEMP_AGE = 60 * 15;
 
 		function setCookie(name, value, maxAgeSeconds) {
 			document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -133,6 +138,10 @@
 		function setStatus(message, isError = false) {
 			statusText.textContent = message;
 			statusText.style.color = isError ? "#ff9cab" : "#b9c7db";
+		}
+
+		function clearCookie(name) {
+			document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
 		}
 
 		function randomString(length) {
@@ -176,6 +185,8 @@
 
 			sessionStorage.setItem("spoteur-code-verifier", verifier);
 			sessionStorage.setItem("spoteur-oauth-state", state);
+			setCookie("spoteur-code-verifier", verifier, OAUTH_TEMP_AGE);
+			setCookie("spoteur-oauth-state", state, OAUTH_TEMP_AGE);
 
 			const scope = encodeURIComponent("user-read-email user-read-private");
 			const authUrl = "https://accounts.spotify.com/authorize"
@@ -203,7 +214,14 @@
 			});
 
 			if (!response.ok) {
-				throw new Error("Echec pendant la recuperation du token Spotify.");
+				let detail = "";
+				try {
+					const errPayload = await response.json();
+					detail = errPayload.error_description || errPayload.error || "";
+				} catch (e) {
+					detail = "";
+				}
+				throw new Error(`Echec pendant la recuperation du token Spotify.${detail ? ` ${detail}` : ""}`);
 			}
 
 			return response.json();
@@ -241,12 +259,12 @@
 
 			try {
 				setStatus("Connexion Spotify en cours...");
-				const expectedState = sessionStorage.getItem("spoteur-oauth-state");
+				const expectedState = sessionStorage.getItem("spoteur-oauth-state") || getCookie("spoteur-oauth-state");
 				if (!expectedState || expectedState !== state) {
 					throw new Error("Etat OAuth invalide, recommence la connexion.");
 				}
 
-				const verifier = sessionStorage.getItem("spoteur-code-verifier");
+				const verifier = sessionStorage.getItem("spoteur-code-verifier") || getCookie("spoteur-code-verifier");
 				const clientId = SPOTIFY_CLIENT_ID;
 				if (!verifier || !clientId || clientId === "REPLACE_WITH_YOUR_SPOTIFY_CLIENT_ID") {
 					throw new Error("Session de connexion expiree, reconnecte-toi.");
@@ -257,8 +275,13 @@
 				const displayName = profile.display_name || profile.id || "Utilisateur";
 
 				setCookie("spoteur-display-name", displayName, COOKIE_MAX_AGE);
+				try {
+					localStorage.setItem("spoteur-display-name", displayName);
+				} catch (e) {}
 				sessionStorage.removeItem("spoteur-code-verifier");
 				sessionStorage.removeItem("spoteur-oauth-state");
+				clearCookie("spoteur-code-verifier");
+				clearCookie("spoteur-oauth-state");
 
 				history.replaceState({}, document.title, SPOTIFY_REDIRECT_URI);
 				setStatus(`Connecte: ${displayName}. Redirection vers l'accueil...`);
@@ -286,6 +309,11 @@
 			setStatus("Redirection vers Spotify...");
 			await startSpotifyLogin(SPOTIFY_CLIENT_ID);
 		});
+
+		redirectInfo.textContent = `Redirect URI utilisee: ${SPOTIFY_REDIRECT_URI}`;
+		if (SPOTIFY_REDIRECT_URI !== CURRENT_LOGIN_URI) {
+			setStatus(`Attention: l'URL courante (${CURRENT_LOGIN_URI}) est differente de la redirect config (${SPOTIFY_REDIRECT_URI}).`, true);
+		}
 
 		handleSpotifyCallback();
 	</script>

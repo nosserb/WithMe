@@ -81,7 +81,16 @@ function updateFocusPanel(title, artist, cover) {
 }
 
 function initWelcome() {
-	const displayName = getCookie("spoteur-display-name").trim();
+	const cookieName = getCookie("spoteur-display-name").trim();
+	let displayName = cookieName;
+	if (!displayName) {
+		try {
+			displayName = (localStorage.getItem("spoteur-display-name") || "").trim();
+		} catch (e) {
+			displayName = "";
+		}
+	}
+
 	if (!displayName) {
 		return;
 	}
