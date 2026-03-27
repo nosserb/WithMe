@@ -116,6 +116,7 @@
 		const CURRENT_LOGIN_URI = `${window.location.origin}${window.location.pathname}`;
 		const CONFIG_REDIRECT_URI = (window.SPOTEUR_CONFIG?.redirectUri || "").trim();
 		const SPOTIFY_REDIRECT_URI = CONFIG_REDIRECT_URI || CURRENT_LOGIN_URI;
+		const POST_LOGIN_REDIRECT = (window.SPOTEUR_CONFIG?.postLoginRedirect || "index.html").trim() || "index.html";
 
 		const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 		const OAUTH_TEMP_AGE = 60 * 15;
@@ -292,7 +293,7 @@
 				setStatus(`Connecte: ${displayName}. Redirection vers l'accueil...`);
 
 				setTimeout(() => {
-					window.location.href = "index.html";
+					window.location.href = POST_LOGIN_REDIRECT;
 				}, 700);
 			} catch (err) {
 				setStatus(err.message || "Connexion Spotify impossible.", true);
