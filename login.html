@@ -107,7 +107,7 @@
 		<a class="back-link" href="index.html">Retour au dashboard</a>
 	</section>
 
-	<script src="spotify-config.js"></script>
+	<script src="spotify-config.js?v=20260327"></script>
 	<script>
 		const spotifyLoginForm = document.getElementById("spotifyLoginForm");
 		const statusText = document.getElementById("statusText");
@@ -115,7 +115,9 @@
 		const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
 		const CURRENT_LOGIN_URI = `${window.location.origin}${window.location.pathname}`;
 		const CONFIG_REDIRECT_URI = (window.SPOTEUR_CONFIG?.redirectUri || "").trim();
-		const SPOTIFY_REDIRECT_URI = CONFIG_REDIRECT_URI || CURRENT_LOGIN_URI;
+		const CONFIG_LOCAL_REDIRECT_URI = (window.SPOTEUR_CONFIG?.localRedirectUri || "").trim();
+		const IS_LOCAL_HOST = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+		const SPOTIFY_REDIRECT_URI = (IS_LOCAL_HOST ? CONFIG_LOCAL_REDIRECT_URI : CONFIG_REDIRECT_URI) || CURRENT_LOGIN_URI;
 		const POST_LOGIN_REDIRECT = (window.SPOTEUR_CONFIG?.postLoginRedirect || "index.html").trim() || "index.html";
 
 		const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -316,10 +318,7 @@
 			await startSpotifyLogin(SPOTIFY_CLIENT_ID);
 		});
 
-		redirectInfo.textContent = `Redirect URI utilisee: ${SPOTIFY_REDIRECT_URI}`;
-		if (SPOTIFY_REDIRECT_URI !== CURRENT_LOGIN_URI) {
-			setStatus(`Attention: l'URL courante (${CURRENT_LOGIN_URI}) est differente de la redirect config (${SPOTIFY_REDIRECT_URI}).`, true);
-		}
+		redirectInfo.textContent = `Redirect URI Spotify utilisee: ${SPOTIFY_REDIRECT_URI}`;
 
 		handleSpotifyCallback();
 	</script>

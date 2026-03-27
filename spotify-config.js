@@ -1,6 +1,7 @@
 window.SPOTEUR_CONFIG = {
 	spotifyClientId: "1418bd40adb94fc296ae25dbf93c7372",
-	redirectUri: "https://nosserb.github.io/WithMe/login.html",
+	redirectUri: "https://nosserb.github.io/WithMe/",
+	localRedirectUri: "http://127.0.0.1:5500/spoteur/index.html",
 	postLoginRedirect: "https://nosserb.github.io/WithMe/",
-	eventAPIkey: "2cab39d6-323f-44f8-a6b9-9d78c0e61d0d"
+	TicketmasterKey: "eD59GweBRt9SXEpsiPs87U6RJGHw0CL8"
 };

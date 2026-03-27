@@ -153,6 +153,10 @@ function setStoredValue(key, value) {
 	} catch (e) {}
 }
 
+function clearCookie(name) {
+	document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 function clearSpotifyStoredAuth() {
 	try {
 		localStorage.removeItem("spoteur-spotify-access-token");
@@ -215,6 +219,103 @@ async function getValidSpotifyToken() {
 	}
 
 	return accessToken;
+}
+
+function getQueryParam(param) {
+	return new URLSearchParams(window.location.search).get(param) || "";
+}
+
+function getSpotifyRedirectUriForHost() {
+	const configRedirectUri = String(window.SPOTEUR_CONFIG?.redirectUri || "").trim();
+	const configLocalRedirectUri = String(window.SPOTEUR_CONFIG?.localRedirectUri || "").trim();
+	const isLocal = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+	const fallbackCurrentPage = `${window.location.origin}${window.location.pathname}`;
+	return (isLocal ? configLocalRedirectUri : configRedirectUri) || fallbackCurrentPage;
+}
+
+async function exchangeSpotifyCodeForToken(code, verifier) {
+	if (!SPOTIFY_CLIENT_ID) {
+		throw new Error("spotify_client_id_missing");
+	}
+
+	const redirectUri = getSpotifyRedirectUriForHost();
+	const body = new URLSearchParams({
+		grant_type: "authorization_code",
+		code,
+		redirect_uri: redirectUri,
+		client_id: SPOTIFY_CLIENT_ID,
+		code_verifier: verifier
+	});
+
+	const response = await fetch("https://accounts.spotify.com/api/token", {
+		method: "POST",
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body
+	});
+
+	if (!response.ok) {
+		let detail = "";
+		try {
+			const payload = await response.json();
+			detail = payload?.error_description || payload?.error || "";
+		} catch (e) {
+			detail = "";
+		}
+		throw new Error(`spotify_oauth_exchange_failed${detail ? `:${detail}` : ""}`);
+	}
+
+	return response.json();
+}
+
+async function handleSpotifyOAuthCallbackOnHome() {
+	const code = getQueryParam("code");
+	const state = getQueryParam("state");
+	const oauthError = getQueryParam("error");
+
+	if (!code && !oauthError) {
+		return;
+	}
+
+	if (oauthError) {
+		history.replaceState({}, document.title, window.location.pathname);
+		return;
+	}
+
+	try {
+		const expectedState = sessionStorage.getItem("spoteur-oauth-state") || getCookie("spoteur-oauth-state");
+		if (!expectedState || expectedState !== state) {
+			throw new Error("spotify_oauth_state_invalid");
+		}
+
+		const verifier = sessionStorage.getItem("spoteur-code-verifier") || getCookie("spoteur-code-verifier");
+		if (!verifier) {
+			throw new Error("spotify_oauth_verifier_missing");
+		}
+
+		const tokenData = await exchangeSpotifyCodeForToken(code, verifier);
+		setStoredValue("spoteur-spotify-access-token", tokenData.access_token || "");
+		setStoredValue("spoteur-spotify-refresh-token", tokenData.refresh_token || "");
+		setStoredValue("spoteur-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
+
+		if (tokenData.access_token) {
+			try {
+				const profile = await spotifyGet("/me", tokenData.access_token);
+				const displayName = profile?.display_name || profile?.id || "";
+				if (displayName) {
+					setCookie("spoteur-display-name", displayName, 60 * 60 * 24 * 365);
+					setStoredValue("spoteur-display-name", displayName);
+				}
+			} catch (e) {}
+		}
+	} catch (e) {
+		clearSpotifyStoredAuth();
+	} finally {
+		sessionStorage.removeItem("spoteur-code-verifier");
+		sessionStorage.removeItem("spoteur-oauth-state");
+		clearCookie("spoteur-code-verifier");
+		clearCookie("spoteur-oauth-state");
+		history.replaceState({}, document.title, window.location.pathname);
+	}
 }
 
 async function spotifyGet(path, accessToken) {
@@ -605,9 +706,12 @@ if (themeToggle) {
 	});
 }
 
-initTheme();
-initWelcome();
-initSpotifyHomeData();
-startProgressLoop();
-startPlayerPolling();
-syncNowPlayingFromSpotify();
+(async function bootHomePage() {
+	initTheme();
+	await handleSpotifyOAuthCallbackOnHome();
+	initWelcome();
+	initSpotifyHomeData();
+	startProgressLoop();
+	startPlayerPolling();
+	syncNowPlayingFromSpotify();
+})();

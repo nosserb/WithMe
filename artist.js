@@ -114,10 +114,39 @@ function renderAlbums(albums) {
 
 async function fetchConcerts(artistName) {
 	concertList.innerHTML = "";
-	const eventApiKey = window.SPOTEUR_CONFIG?.eventAPIkey || 'spoteur_live';
-	const directUrl = `https://rest.bandsintown.com/artists/${encodeURIComponent(artistName)}/events?app_id=${eventApiKey}&date=upcoming`;
+	const ticketmasterKey = (
+		window.SPOTEUR_CONFIG?.TicketmasterKey
+		|| window.SPOTEUR_CONFIG?.ticketmasterKey
+		|| window.SPOTEUR_CONFIG?.ticketmasterApiKey
+		|| ""
+	).trim();
+
+	if (!artistName) {
+		concertList.innerHTML = "<li>Nom d'artiste manquant pour rechercher des concerts.</li>";
+		return;
+	}
+
+	if (!ticketmasterKey) {
+		concertList.innerHTML = "<li>Cle Ticketmaster manquante dans spotify-config.js.</li>";
+		return;
+	}
+
+	const baseUrl = "https://app.ticketmaster.com/discovery/v2/events.json";
+	const params = new URLSearchParams({
+		apikey: ticketmasterKey,
+		keyword: artistName,
+		classificationName: "music",
+		size: "8",
+		sort: "date,asc",
+		locale: "*",
+		includeTBA: "no",
+		includeTBD: "no",
+		startDateTime: new Date().toISOString()
+	});
+
+	const directUrl = `${baseUrl}?${params.toString()}`;
 	const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-	const urlsToTry = [proxiedUrl, directUrl];
+	const urlsToTry = [directUrl, proxiedUrl];
 
 	try {
 		let events = null;
@@ -125,14 +154,21 @@ async function fetchConcerts(artistName) {
 			try {
 				const response = await fetch(url);
 				if (!response.ok) {
+					if (response.status === 401) {
+						throw new Error("ticketmaster_invalid_key");
+					}
 					continue;
 				}
 				const payload = await response.json();
-				if (Array.isArray(payload)) {
-					events = payload;
+				const eventItems = payload?._embedded?.events;
+				if (Array.isArray(eventItems)) {
+					events = eventItems;
 					break;
 				}
 			} catch (e) {
+				if (String(e?.message || "") === "ticketmaster_invalid_key") {
+					throw e;
+				}
 				continue;
 			}
 		}
@@ -141,22 +177,50 @@ async function fetchConcerts(artistName) {
 			throw new Error("concert_error");
 		}
 
-		if (!Array.isArray(events) || !events.length) {
+		const artistNameNorm = normalizeName(artistName);
+		const filteredEvents = events.filter((eventItem) => {
+			const attractions = eventItem?._embedded?.attractions || [];
+			if (!attractions.length) {
+				return true;
+			}
+			return attractions.some((attraction) => {
+				const attractionNorm = normalizeName(attraction?.name || "");
+				return attractionNorm === artistNameNorm
+					|| attractionNorm.includes(artistNameNorm)
+					|| artistNameNorm.includes(attractionNorm);
+			});
+		});
+
+		const listToRender = filteredEvents.length ? filteredEvents : events;
+		if (!listToRender.length) {
 			concertList.innerHTML = "<li>Aucune date de concert annoncee.</li>";
 			return;
 		}
 
-		events.slice(0, 8).forEach((eventItem) => {
+		listToRender.slice(0, 8).forEach((eventItem) => {
 			const li = document.createElement("li");
-			const d = new Date(eventItem.datetime);
-			const venue = eventItem?.venue?.name || "Lieu non precise";
-			const city = eventItem?.venue?.city || "Ville inconnue";
-			const country = eventItem?.venue?.country || "";
-			li.innerHTML = `<strong>${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span>`;
+			const venueInfo = eventItem?._embedded?.venues?.[0] || {};
+			const localDate = eventItem?.dates?.start?.localDate || "";
+			const localTime = eventItem?.dates?.start?.localTime || "";
+			const rawDate = localDate ? `${localDate}${localTime ? `T${localTime}` : ""}` : "";
+			const d = rawDate ? new Date(rawDate) : null;
+			const formattedDate = d && !Number.isNaN(d.getTime())
+				? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+				: "Date a confirmer";
+			const venue = venueInfo?.name || "Lieu non precise";
+			const city = venueInfo?.city?.name || "Ville inconnue";
+			const country = venueInfo?.country?.name || "";
+			const ticketUrl = eventItem?.url || "";
+
+			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
 			concertList.appendChild(li);
 		});
 	} catch (error) {
-		concertList.innerHTML = `<li>Concerts indisponibles pour le moment. <a class=\"inline-link\" href=\"https://www.bandsintown.com/a/${encodeURIComponent(artistName)}\" target=\"_blank\" rel=\"noopener noreferrer\">Voir sur Bandsintown</a>.</li>`;
+		if (String(error?.message || "") === "ticketmaster_invalid_key") {
+			concertList.innerHTML = "<li>La cle Ticketmaster est invalide. Verifie la valeur dans spotify-config.js.</li>";
+			return;
+		}
+		concertList.innerHTML = "<li>Concerts Ticketmaster indisponibles pour le moment.</li>";
 	}
 }
 
@@ -171,6 +235,11 @@ function parseSpotifyError(message) {
 		detail: parsed?.[2] || "",
 		raw: msg
 	};
+}
+
+function isSpotifyForbiddenError(error) {
+	const spotifyError = parseSpotifyError(error?.message || "");
+	return spotifyError?.statusCode === 403;
 }
 
 async function fetchArtistTopTracksWithFallback(id, token) {
@@ -188,6 +257,9 @@ async function fetchArtistTopTracksWithFallback(id, token) {
 		} catch (error) {
 			lastError = error;
 			const spotifyError = parseSpotifyError(error?.message || "");
+			if (spotifyError?.statusCode === 403) {
+				return [];
+			}
 			if (spotifyError?.statusCode && ![400, 403, 404].includes(spotifyError.statusCode)) {
 				throw error;
 			}
@@ -215,6 +287,9 @@ async function fetchArtistAlbumsWithFallback(id, token) {
 		} catch (error) {
 			lastError = error;
 			const spotifyError = parseSpotifyError(error?.message || "");
+			if (spotifyError?.statusCode === 403) {
+				return [];
+			}
 			if (spotifyError?.statusCode && ![400, 404].includes(spotifyError.statusCode)) {
 				throw error;
 			}
@@ -340,7 +415,11 @@ async function fetchBestArtistCandidate(targetName, token, preferredId = "") {
 			if (bulkArtists.length) {
 				detailedCandidates = bulkArtists;
 			}
-		} catch (e) {}
+		} catch (e) {
+			if (isSpotifyForbiddenError(e)) {
+				detailedCandidates = candidates;
+			}
+		}
 	}
 
 	const targetNorm = normalizeName(queryName);
@@ -482,10 +561,14 @@ async function initArtistPage() {
 		]);
 
 		let initialArtist = settled[0].status === "fulfilled" ? settled[0].value : null;
-		if (!initialArtist) {
+		const artistRequestForbidden = settled[0].status === "rejected" && isSpotifyForbiddenError(settled[0].reason);
+		if (!initialArtist && !artistRequestForbidden) {
 			initialArtist = await fetchArtistBySeveralEndpoint(id, token);
 		}
 		if (!initialArtist) {
+			if (artistRequestForbidden) {
+				throw settled[0].reason;
+			}
 			throw settled[0].status === "rejected" ? settled[0].reason : new Error("spotify_error_404");
 		}
 
@@ -514,15 +597,16 @@ async function initArtistPage() {
 			} catch (e) {}
 		}
 		let topTracks = settled[1].status === "fulfilled" ? settled[1].value : [];
+		const topTracksForbidden = settled[1].status === "rejected" && isSpotifyForbiddenError(settled[1].reason);
 		let topTracksRecovered = false;
 
-		if ((artist?.id || "") !== (initialArtist?.id || "") && !topTracks.length) {
+		if (!topTracksForbidden && (artist?.id || "") !== (initialArtist?.id || "") && !topTracks.length) {
 			try {
 				topTracks = await fetchArtistTopTracksWithFallback(artist.id, token);
 				topTracksRecovered = topTracks.length > 0;
 			} catch (e) {}
 		}
-		if (!topTracks.length) {
+		if (!topTracksForbidden && !topTracks.length) {
 			try {
 				topTracks = await fetchTopTracksBySearchFallback(artist, token);
 				topTracksRecovered = topTracks.length > 0;
@@ -539,6 +623,11 @@ async function initArtistPage() {
 		}
 
 		await fetchConcerts(artist.name);
+
+		if (topTracksForbidden) {
+			setStatus("Artiste charge. Les top morceaux ne sont pas accessibles avec ce token Spotify (403).", true);
+			return;
+		}
 
 		if (settled[1].status === "rejected" && !topTracksRecovered && !topTracks.length) {
 			setStatus("Artiste charge. Top morceaux indisponibles pour le moment.", true);
@@ -561,6 +650,10 @@ async function initArtistPage() {
 		const spotifyError = parseSpotifyError(error?.message || "");
 		if (spotifyError?.statusCode === 429) {
 			setStatus("Spotify limite temporairement les requetes. Reessaie dans quelques secondes.", true);
+			return;
+		}
+		if (spotifyError?.statusCode === 403) {
+			setStatus("Spotify refuse l'acces a certaines donnees artistes (403). Reconnecte-toi ou verifie les droits de l'application.", true);
 			return;
 		}
 		if (spotifyError?.statusCode === 404) {
