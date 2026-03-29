@@ -3,11 +3,11 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>WithMe - Morceau</title>
+	<title>WithMe - Chat concert</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="style.css?v=20260328-ui1" />
+	<link rel="stylesheet" href="style.css?v=20260329-chat3" />
 </head>
 <body>
 	<header class="page-header">
@@ -19,11 +19,12 @@
 			<nav class="page-nav" aria-label="Navigation principale">
 				<a href="index.html">Dashboard</a>
 				<a href="search.html">Recherche</a>
+				<a href="profile.html">Profil</a>
 			</nav>
 		</div>
 		<div class="header-meta">
-			<h1>Fiche morceau</h1>
-			<p class="header-sub">Details du morceau selectionne.</p>
+			<h1 id="chatTitle">Discussion de concert</h1>
+			<p class="header-sub">Echange avec la commu autour de ce concert.</p>
 		</div>
 		<div class="header-actions">
 			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
@@ -31,16 +32,21 @@
 		</div>
 	</header>
 
-	<main class="card detail-main">
-		<p id="detailStatus" class="search-status">Chargement...</p>
-		<article id="trackDetail" class="detail-layout"></article>
+	<main class="card chat-page dm-chat-shell">
+		<div class="dm-chat-topbar">
+			<div id="chatStatus" class="search-status">Chargement du chat...</div>
+		</div>
+		<section id="chatMessages" class="chat-messages dm-chat-messages dm-thread" aria-live="polite"></section>
+
+		<form id="chatForm" class="chat-form dm-compose" novalidate>
+			<input id="chatInput" class="search-input" type="text" maxlength="500" placeholder="Ecris un message pour la discussion de concert" required />
+			<button id="chatSendBtn" class="login-top-btn" type="submit">Envoyer</button>
+		</form>
 	</main>
 
 	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
 	<script src="auth-client.js?v=20260328"></script>
 	<script src="header-auth.js?v=20260328-1"></script>
-	<script src="auth-guard.js?v=20260328"></script>
-	<script src="spotify-auth.js?v=20260328"></script>
-	<script src="track.js?v=20260328-2"></script>
+	<script src="concert-chat.js?v=20260329-chat3"></script>
 </body>
 </html>

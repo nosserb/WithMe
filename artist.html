@@ -3,25 +3,31 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Spoteur - Artiste</title>
+	<title>WithMe - Artiste</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="style.css" />
+	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css?v=20260328-ui1" />
 </head>
 <body>
-	<header class="page-header card">
+	<header class="page-header">
 		<div class="page-header-left">
 			<div class="brand-inline">
-				<img src="img/spotifylogoN.svg" alt="Spoteur" />
-				<p class="eyebrow">Spoteur</p>
+				<span class="brand-glyph" aria-hidden="true">WM</span>
+				<p class="eyebrow">WithMe</p>
 			</div>
-			<h1>Fiche Artiste</h1>
-			<p class="header-sub">Infos Spotify + prochaines dates de concerts.</p>
+			<nav class="page-nav" aria-label="Navigation principale">
+				<a href="index.html">Dashboard</a>
+				<a href="search.html">Recherche</a>
+			</nav>
+		</div>
+		<div class="header-meta">
+			<h1>Fiche artiste</h1>
+			<p class="header-sub">Infos de l'artiste + prochaines dates de concerts.</p>
 		</div>
 		<div class="header-actions">
 			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
-			<a class="login-top-btn" href="search.html">Recherche</a>
+			<a id="authActionBtn" class="login-top-btn" href="login.html">Connexion</a>
 		</div>
 	</header>
 
@@ -34,8 +40,11 @@
 		</section>
 	</main>
 
-	<script src="spotify-config.js?v=20260327"></script>
-	<script src="spotify-auth.js?v=20260327"></script>
-	<script src="artist.js?v=20260327-5"></script>
+	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="auth-client.js?v=20260328"></script>
+	<script src="header-auth.js?v=20260328-1"></script>
+	<script src="auth-guard.js?v=20260328"></script>
+	<script src="spotify-auth.js?v=20260328"></script>
+	<script src="artist.js?v=20260328-5"></script>
 </body>
 </html>

@@ -3,33 +3,47 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Spoteur - Dashboard</title>
+	<title>WithMe - Dashboard</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="style.css" />
+	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css?v=20260329-dm1" />
 </head>
 <body>
-	<header class="page-header card">
+	<header class="page-header">
 		<div class="page-header-left">
+			<a id="headerProfileLink" class="header-profile-link" href="profile.html" aria-label="Ouvrir mon profil">
+				<img id="headerProfileAvatar" class="header-profile-avatar" src="img/artist-focus.svg" alt="Photo de profil" />
+				<div class="header-profile-copy">
+					<strong id="headerProfileName">Mon profil</strong>
+					<small id="headerProfileEmail">Compte WithMe</small>
+				</div>
+			</a>
 			<div class="brand-inline">
-				<img src="img/spotifylogoN.svg" alt="Spoteur" />
-				<p class="eyebrow">Spoteur</p>
+				<span class="brand-glyph" aria-hidden="true">WM</span>
+				<p class="eyebrow">WithMe</p>
 			</div>
+			<nav class="page-nav" aria-label="Navigation principale">
+				<a class="active" href="index.html">Dashboard</a>
+				<a href="search.html">Recherche</a>
+				<a href="profile.html">Profil</a>
+			</nav>
+		</div>
+		<div class="header-meta">
 			<h1 id="welcomeTitle">Bonjour</h1>
-			<p class="header-sub">Vendredi 27 mars · Tes ecoutes du moment</p>
+			<p class="header-sub">Vendredi 27 mars · Ta musique du moment</p>
 		</div>
 		<div class="header-actions">
 			<button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Activer le mode sombre">Mode sombre</button>
-			<a class="login-top-btn" href="login.html">Connexion</a>
+			<a id="authActionBtn" class="login-top-btn" href="login.html">Connexion</a>
 		</div>
 	</header>
 
 	<div class="app-shell">
 		<aside class="sidebar card">
 			<div class="brand">
-				<img src="img/spotifylogoB.svg" alt="Spoteur logo" class="brand-mark" />
-				<h1>Spoteur</h1>
+				<span class="brand-mark" aria-hidden="true">WM</span>
+				<h1>WithMe</h1>
 			</div>
 
 			<nav class="menu-block">
@@ -41,10 +55,10 @@
 
 			<nav class="menu-block">
 				<h2>Playlists</h2>
-				<a href="#" class="menu-item">Daily Pulse</a>
-				<a href="#" class="menu-item">After Midnight</a>
-				<a href="#" class="menu-item">French Touch Mix</a>
-				<a href="#" class="menu-item">Coding Focus</a>
+				<a href="#" class="menu-item js-playlist-link" data-fallback="Daily Pulse">Daily Pulse</a>
+				<a href="#" class="menu-item js-playlist-link" data-fallback="After Midnight">After Midnight</a>
+				<a href="#" class="menu-item js-playlist-link" data-fallback="French Touch Mix">French Touch Mix</a>
+				<a href="#" class="menu-item js-playlist-link" data-fallback="Coding Focus">Coding Focus</a>
 			</nav>
 
 			<div class="side-track">
@@ -128,32 +142,25 @@
 				<div class="insight-column">
 					<section class="insight-card ranking-card">
 						<div class="insight-head">
-							<h3>Classement de la semaine</h3>
-							<small>Artistes les plus ecoutes</small>
+							<h3>Concerts recents</h3>
+							<small>Prochaines dates pour tes artistes favoris</small>
 						</div>
-						<ol id="rankingList" class="ranking-list">
-							<li><span>#1</span><strong>Daft Punk</strong><em>Pop: 86</em></li>
-							<li><span>#2</span><strong>Stromae</strong><em>Pop: 82</em></li>
-							<li><span>#3</span><strong>Angele</strong><em>Pop: 79</em></li>
-							<li><span>#4</span><strong>Orelsan</strong><em>Pop: 76</em></li>
-							<li><span>#5</span><strong>Phoenix</strong><em>Pop: 73</em></li>
-						</ol>
+						<ul id="concertsList" class="ranking-list">
+							<li><span>...</span><strong>Chargement des concerts</strong><em>Patiente un instant</em></li>
+						</ul>
 					</section>
 				</div>
 			</section>
 		</main>
 
-		<aside class="artist-panel card">
-			<h3>Artiste en focus</h3>
-			<img id="focusCover" class="artist-cover" src="img/artist-focus.svg" alt="Artist cover" />
-			<div class="artist-meta">
-				<h4 id="focusTitle">Chaise Lounge</h4>
-				<p id="focusArtist">Wet Leg</p>
+		<aside class="artist-panel card dm-panel">
+			<div class="dm-panel-head">
+				<h3>Messages prives</h3>
+				<small id="dmFriendsMeta">Charge les amis...</small>
 			</div>
-			<div class="artist-stats">
-				<span id="focusListeners">2 859 648 auditeurs mensuels</span>
-			</div>
-			<button class="follow-btn">Suivre</button>
+			<ul id="dmFriendsList" class="dm-friends-list">
+				<li class="dm-friend-empty">Aucun ami disponible.</li>
+			</ul>
 		</aside>
 	</div>
 
@@ -185,7 +192,10 @@
 		</div>
 	</footer>
 
-	<script src="spotify-config.js?v=20260327"></script>
-	<script src="script.js?v=20260327"></script>
+	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="auth-client.js?v=20260329-friends1"></script>
+	<script src="header-auth.js?v=20260328-1"></script>
+	<script src="auth-guard.js?v=20260328"></script>
+	<script src="script.js?v=20260329-dm1"></script>
 </body>
 </html>

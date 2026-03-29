@@ -8,9 +8,14 @@ const playerTitle = document.getElementById("playerTitle");
 const playerArtist = document.getElementById("playerArtist");
 const playerCover = document.getElementById("playerCover");
 const themeToggle = document.getElementById("themeToggle");
+const headerProfileAvatar = document.getElementById("headerProfileAvatar");
+const headerProfileName = document.getElementById("headerProfileName");
+const headerProfileEmail = document.getElementById("headerProfileEmail");
 const welcomeTitle = document.getElementById("welcomeTitle");
 const greetLine = document.getElementById("greetLine");
-const rankingList = document.getElementById("rankingList");
+const concertsList = document.getElementById("concertsList");
+const dmFriendsList = document.getElementById("dmFriendsList");
+const dmFriendsMeta = document.getElementById("dmFriendsMeta");
 
 const focusCover = document.getElementById("focusCover");
 const focusTitle = document.getElementById("focusTitle");
@@ -19,7 +24,9 @@ const focusListeners = document.getElementById("focusListeners");
 
 const quickCards = Array.from(document.querySelectorAll(".quick-card"));
 const albumCards = Array.from(document.querySelectorAll(".album-card"));
+const playlistMenuLinks = Array.from(document.querySelectorAll(".js-playlist-link"));
 const selectableCards = document.querySelectorAll(".quick-card, .album-card");
+const PROFILE_FALLBACK_AVATAR = "img/artist-focus.svg";
 
 let isPlaying = false;
 let progress = 0;
@@ -28,7 +35,13 @@ let durationMs = 0;
 let timer = null;
 let playerPollTimer = null;
 let spotifyControlEnabled = false;
-const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
+const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
+const TICKETMASTER_KEY = String(
+	window.WITHME_CONFIG?.TicketmasterKey
+	|| window.WITHME_CONFIG?.ticketmasterKey
+	|| window.WITHME_CONFIG?.ticketmasterApiKey
+	|| ""
+).trim();
 
 function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -55,7 +68,7 @@ function applyTheme(mode) {
 }
 
 function initTheme() {
-	const storedTheme = getCookie("spoteur-theme");
+	const storedTheme = getCookie("WithMe-theme");
 	const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 	const initialTheme = storedTheme || (prefersDark ? "dark" : "light");
 	applyTheme(initialTheme);
@@ -109,18 +122,57 @@ function startProgressLoop() {
 }
 
 function updateFocusPanel(title, artist, cover) {
+	if (!focusCover || !focusTitle || !focusArtist || !focusListeners) {
+		return;
+	}
 	focusCover.src = cover;
 	focusTitle.textContent = title;
 	focusArtist.textContent = artist;
 	focusListeners.textContent = "Live listeners estimate available soon";
 }
 
+function applyHeaderProfile(profile) {
+	if (!headerProfileName || !headerProfileEmail || !headerProfileAvatar) {
+		return;
+	}
+
+	const username = String(profile?.username || "").trim() || "Mon profil";
+	const email = String(profile?.email || "").trim() || "Compte WithMe";
+	const avatarUrl = String(profile?.avatarUrl || "").trim() || PROFILE_FALLBACK_AVATAR;
+
+	headerProfileName.textContent = username;
+	headerProfileEmail.textContent = email;
+	headerProfileAvatar.src = avatarUrl;
+	headerProfileAvatar.alt = `Photo de ${username}`;
+}
+
+async function initHeaderProfile() {
+	if (!window.WithMeAuth || !headerProfileName || !headerProfileEmail || !headerProfileAvatar) {
+		return;
+	}
+
+	try {
+		const profile = await window.WithMeAuth.getProfile();
+		if (profile) {
+			applyHeaderProfile(profile);
+			return;
+		}
+	} catch (e) {}
+
+	try {
+		const stored = window.WithMeAuth.getStoredUser();
+		if (stored) {
+			applyHeaderProfile(stored);
+		}
+	} catch (e) {}
+}
+
 function initWelcome() {
-	const cookieName = getCookie("spoteur-display-name").trim();
+	const cookieName = getCookie("WithMe-display-name").trim();
 	let displayName = cookieName;
 	if (!displayName) {
 		try {
-			displayName = (localStorage.getItem("spoteur-display-name") || "").trim();
+			displayName = (localStorage.getItem("WithMe-display-name") || "").trim();
 		} catch (e) {
 			displayName = "";
 		}
@@ -141,16 +193,23 @@ function initWelcome() {
 
 function getStoredValue(key) {
 	try {
-		return localStorage.getItem(key) || "";
+		const fromStorage = localStorage.getItem(key) || "";
+		if (fromStorage) {
+			return fromStorage;
+		}
 	} catch (e) {
-		return "";
+		// Ignore and fallback to cookie.
 	}
+
+	return getCookie(key);
 }
 
 function setStoredValue(key, value) {
+	const normalized = String(value || "");
 	try {
-		localStorage.setItem(key, value);
+		localStorage.setItem(key, normalized);
 	} catch (e) {}
+	setCookie(key, normalized, 60 * 60 * 24 * 365);
 }
 
 function clearCookie(name) {
@@ -159,10 +218,14 @@ function clearCookie(name) {
 
 function clearSpotifyStoredAuth() {
 	try {
-		localStorage.removeItem("spoteur-spotify-access-token");
-		localStorage.removeItem("spoteur-spotify-refresh-token");
-		localStorage.removeItem("spoteur-spotify-expires-at");
+		localStorage.removeItem("WithMe-spotify-access-token");
+		localStorage.removeItem("WithMe-spotify-refresh-token");
+		localStorage.removeItem("WithMe-spotify-expires-at");
 	} catch (e) {}
+
+	clearCookie("WithMe-spotify-access-token");
+	clearCookie("WithMe-spotify-refresh-token");
+	clearCookie("WithMe-spotify-expires-at");
 }
 
 async function refreshSpotifyAccessToken(refreshToken) {
@@ -189,10 +252,10 @@ async function refreshSpotifyAccessToken(refreshToken) {
 	const data = await response.json();
 	const nextAccessToken = data.access_token || "";
 	if (nextAccessToken) {
-		setStoredValue("spoteur-spotify-access-token", nextAccessToken);
-		setStoredValue("spoteur-spotify-expires-at", String(Date.now() + ((data.expires_in || 3600) * 1000)));
+		setStoredValue("WithMe-spotify-access-token", nextAccessToken);
+		setStoredValue("WithMe-spotify-expires-at", String(Date.now() + ((data.expires_in || 3600) * 1000)));
 		if (data.refresh_token) {
-			setStoredValue("spoteur-spotify-refresh-token", data.refresh_token);
+			setStoredValue("WithMe-spotify-refresh-token", data.refresh_token);
 		}
 	}
 
@@ -200,10 +263,19 @@ async function refreshSpotifyAccessToken(refreshToken) {
 }
 
 async function getValidSpotifyToken() {
-	let accessToken = getStoredValue("spoteur-spotify-access-token");
-	const refreshToken = getStoredValue("spoteur-spotify-refresh-token");
-	const expiresAtRaw = getStoredValue("spoteur-spotify-expires-at");
+	let accessToken = getStoredValue("WithMe-spotify-access-token");
+	const refreshToken = getStoredValue("WithMe-spotify-refresh-token");
+	const expiresAtRaw = getStoredValue("WithMe-spotify-expires-at");
 	const expiresAt = Number(expiresAtRaw || "0");
+
+	if (!accessToken && refreshToken) {
+		const refreshed = await refreshSpotifyAccessToken(refreshToken);
+		if (!refreshed) {
+			clearSpotifyStoredAuth();
+			return "";
+		}
+		accessToken = refreshed;
+	}
 
 	if (!accessToken) {
 		return "";
@@ -226,11 +298,16 @@ function getQueryParam(param) {
 }
 
 function getSpotifyRedirectUriForHost() {
-	const configRedirectUri = String(window.SPOTEUR_CONFIG?.redirectUri || "").trim();
-	const configLocalRedirectUri = String(window.SPOTEUR_CONFIG?.localRedirectUri || "").trim();
-	const isLocal = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
-	const fallbackCurrentPage = `${window.location.origin}${window.location.pathname}`;
-	return (isLocal ? configLocalRedirectUri : configRedirectUri) || fallbackCurrentPage;
+	const candidate = String(
+		window.WITHME_CONFIG?.spotifyRedirectUri
+		|| window.WITHME_CONFIG?.localRedirectUri
+		|| window.WITHME_CONFIG?.redirectUri
+		|| ""
+	).trim();
+	if (/^https:\/\//i.test(candidate)) {
+		return candidate;
+	}
+	throw new Error("spotify_redirect_uri_insecure");
 }
 
 async function exchangeSpotifyCodeForToken(code, verifier) {
@@ -282,38 +359,38 @@ async function handleSpotifyOAuthCallbackOnHome() {
 	}
 
 	try {
-		const expectedState = sessionStorage.getItem("spoteur-oauth-state") || getCookie("spoteur-oauth-state");
+		const expectedState = sessionStorage.getItem("WithMe-oauth-state") || getCookie("WithMe-oauth-state");
 		if (!expectedState || expectedState !== state) {
 			throw new Error("spotify_oauth_state_invalid");
 		}
 
-		const verifier = sessionStorage.getItem("spoteur-code-verifier") || getCookie("spoteur-code-verifier");
+		const verifier = sessionStorage.getItem("WithMe-code-verifier") || getCookie("WithMe-code-verifier");
 		if (!verifier) {
 			throw new Error("spotify_oauth_verifier_missing");
 		}
 
 		const tokenData = await exchangeSpotifyCodeForToken(code, verifier);
-		setStoredValue("spoteur-spotify-access-token", tokenData.access_token || "");
-		setStoredValue("spoteur-spotify-refresh-token", tokenData.refresh_token || "");
-		setStoredValue("spoteur-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
+		setStoredValue("WithMe-spotify-access-token", tokenData.access_token || "");
+		setStoredValue("WithMe-spotify-refresh-token", tokenData.refresh_token || "");
+		setStoredValue("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
 
 		if (tokenData.access_token) {
 			try {
 				const profile = await spotifyGet("/me", tokenData.access_token);
 				const displayName = profile?.display_name || profile?.id || "";
 				if (displayName) {
-					setCookie("spoteur-display-name", displayName, 60 * 60 * 24 * 365);
-					setStoredValue("spoteur-display-name", displayName);
+					setCookie("WithMe-display-name", displayName, 60 * 60 * 24 * 365);
+					setStoredValue("WithMe-display-name", displayName);
 				}
 			} catch (e) {}
 		}
 	} catch (e) {
 		clearSpotifyStoredAuth();
 	} finally {
-		sessionStorage.removeItem("spoteur-code-verifier");
-		sessionStorage.removeItem("spoteur-oauth-state");
-		clearCookie("spoteur-code-verifier");
-		clearCookie("spoteur-oauth-state");
+		sessionStorage.removeItem("WithMe-code-verifier");
+		sessionStorage.removeItem("WithMe-oauth-state");
+		clearCookie("WithMe-code-verifier");
+		clearCookie("WithMe-oauth-state");
 		history.replaceState({}, document.title, window.location.pathname);
 	}
 }
@@ -574,21 +651,203 @@ function mapArtistRankingItem(artist) {
 	};
 }
 
-function renderRanking(artists) {
-	if (!rankingList || !artists?.length) {
+function getFallbackConcertArtists() {
+	const seeds = [
+		String(focusTitle?.textContent || "").trim(),
+		...quickCards.map((card) => String(card?.dataset?.artist || "").trim()),
+		...albumCards.map((card) => String(card?.dataset?.artist || "").trim())
+	].filter(Boolean);
+
+	const unique = [];
+	const seen = new Set();
+	for (const name of seeds) {
+		const key = name.toLowerCase();
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		unique.push(name);
+	}
+
+	return unique.slice(0, 5);
+}
+
+function formatConcertDate(rawDate, rawTime) {
+	if (!rawDate) {
+		return "Date a confirmer";
+	}
+	const iso = rawTime ? `${rawDate}T${rawTime}` : rawDate;
+	const dateObj = new Date(iso);
+	if (Number.isNaN(dateObj.getTime())) {
+		return "Date a confirmer";
+	}
+	return dateObj.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function mapConcertItem(eventItem, fallbackArtist) {
+	if (!eventItem) {
+		return null;
+	}
+
+	const localDate = eventItem?.dates?.start?.localDate || "";
+	const localTime = eventItem?.dates?.start?.localTime || "";
+	const venueInfo = eventItem?._embedded?.venues?.[0] || {};
+	const attractions = eventItem?._embedded?.attractions || [];
+	const eventArtist = attractions?.[0]?.name || fallbackArtist || "Artiste";
+
+	const when = formatConcertDate(localDate, localTime);
+	const whenMs = localDate ? new Date(localTime ? `${localDate}T${localTime}` : localDate).getTime() : Number.POSITIVE_INFINITY;
+	const venue = venueInfo?.name || "Lieu non precise";
+	const city = venueInfo?.city?.name || "Ville inconnue";
+	const country = venueInfo?.country?.name || "";
+	const rawConcertId = String(eventItem?.id || "").trim();
+	const fallbackKey = [eventArtist, localDate, venue, city]
+		.map((value) => String(value || "").trim().replace(/\s+/g, "_"))
+		.filter(Boolean)
+		.join("|")
+		.slice(0, 140);
+	const chatKey = rawConcertId ? `tm:${rawConcertId}` : `local:${fallbackKey || "concert"}`;
+
+	return {
+		id: String(eventItem?.id || ""),
+		chatKey,
+		artist: eventArtist,
+		when,
+		whenMs: Number.isFinite(whenMs) ? whenMs : Number.POSITIVE_INFINITY,
+		venue,
+		city,
+		country,
+		url: eventItem?.url || ""
+	};
+}
+
+async function fetchConcertsForArtist(artistName) {
+	if (!artistName || !TICKETMASTER_KEY) {
+		return [];
+	}
+
+	const baseUrl = "https://app.ticketmaster.com/discovery/v2/events.json";
+	const startDateTime = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+	const params = new URLSearchParams({
+		apikey: TICKETMASTER_KEY,
+		keyword: artistName,
+		classificationName: "music",
+		size: "6",
+		sort: "date,asc",
+		locale: "*",
+		includeTBA: "no",
+		includeTBD: "no",
+		startDateTime
+	});
+
+	const directUrl = `${baseUrl}?${params.toString()}`;
+	const proxiedUrls = [
+		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`
+	];
+
+	for (const url of proxiedUrls) {
+		try {
+			const response = await fetch(url);
+			if (!response.ok) {
+				continue;
+			}
+			const payload = await response.json();
+			const normalized = typeof payload?.contents === "string"
+				? JSON.parse(payload.contents)
+				: payload;
+			const events = normalized?._embedded?.events || [];
+			if (Array.isArray(events) && events.length) {
+				return events
+					.map((eventItem) => mapConcertItem(eventItem, artistName))
+					.filter(Boolean);
+			}
+		} catch (e) {
+			continue;
+		}
+	}
+
+	return [];
+}
+
+async function fetchRecentConcerts(topArtists) {
+	if (!TICKETMASTER_KEY) {
+		return [];
+	}
+
+	const artistsFromSpotify = Array.isArray(topArtists)
+		? topArtists.map((artist) => String(artist?.name || "").trim()).filter(Boolean)
+		: [];
+	const artists = artistsFromSpotify.length ? artistsFromSpotify.slice(0, 5) : getFallbackConcertArtists();
+
+	if (!artists.length) {
+		return [];
+	}
+
+	const settled = await Promise.allSettled(artists.map((name) => fetchConcertsForArtist(name)));
+	const merged = settled
+		.filter((item) => item.status === "fulfilled")
+		.flatMap((item) => item.value || []);
+
+	const unique = [];
+	const seen = new Set();
+	for (const concert of merged) {
+		const key = concert.id || `${concert.artist}|${concert.when}|${concert.venue}|${concert.city}`;
+		if (!key || seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		unique.push(concert);
+	}
+
+	unique.sort((a, b) => a.whenMs - b.whenMs);
+	return unique.slice(0, 6);
+}
+
+function renderRecentConcerts(concerts) {
+	if (!concertsList) {
 		return;
 	}
 
-	rankingList.innerHTML = "";
-	artists.slice(0, 5).forEach((artist, index) => {
+	if (!Array.isArray(concerts) || !concerts.length) {
+		concertsList.innerHTML = "<li><span>i</span><strong>Aucun concert trouve</strong><em>Essaie de relancer plus tard</em></li>";
+		return;
+	}
+
+	concertsList.innerHTML = "";
+	concerts.forEach((concert) => {
+		const location = `${concert.venue} · ${concert.city}${concert.country ? `, ${concert.country}` : ""}`;
 		const li = document.createElement("li");
-		li.innerHTML = `<span>#${index + 1}</span><strong>${artist.name}</strong><em>Pop: ${artist.popularity}</em>`;
-		rankingList.appendChild(li);
+		li.innerHTML = `<span>${concert.when}</span><strong>${concert.artist}</strong><em>${location}</em>`;
+
+		const chatLink = document.createElement("a");
+		chatLink.className = "detail-link";
+		chatLink.href = `concert-chat.html?concertKey=${encodeURIComponent(concert.chatKey)}&artist=${encodeURIComponent(concert.artist)}`;
+		chatLink.textContent = "Ouvrir le chat";
+		li.appendChild(chatLink);
+
+		if (concert.url) {
+			const ticketLink = document.createElement("a");
+			ticketLink.className = "detail-link";
+			ticketLink.href = concert.url;
+			ticketLink.target = "_blank";
+			ticketLink.rel = "noopener noreferrer";
+			ticketLink.textContent = "Billets";
+			li.appendChild(ticketLink);
+		}
+		concertsList.appendChild(li);
 	});
 }
 
+function renderConcertsLoadingState() {
+	if (!concertsList) {
+		return;
+	}
+	concertsList.innerHTML = "<li><span>...</span><strong>Chargement des concerts</strong><em>Recherche en cours</em></li>";
+}
+
 function renderFocusArtist(artist) {
-	if (!artist) {
+	if (!artist || !focusCover || !focusTitle || !focusArtist || !focusListeners) {
 		return;
 	}
 
@@ -606,9 +865,138 @@ function renderFocusArtist(artist) {
 	}
 }
 
+function renderDmFriends(items) {
+	if (!dmFriendsList || !dmFriendsMeta) {
+		return;
+	}
+
+	dmFriendsList.innerHTML = "";
+	const list = Array.isArray(items) ? items : [];
+	dmFriendsMeta.textContent = `${list.length} ami(s)`;
+
+	if (!list.length) {
+		dmFriendsList.innerHTML = '<li class="dm-friend-empty">Ajoute des amis depuis la recherche pour commencer a DM.</li>';
+		return;
+	}
+
+	for (const friend of list) {
+		const id = Number(friend?.id || 0);
+		if (!id) {
+			continue;
+		}
+		const username = String(friend?.username || "Utilisateur").trim() || "Utilisateur";
+		const avatarUrl = String(friend?.avatarUrl || "").trim() || PROFILE_FALLBACK_AVATAR;
+
+		const item = document.createElement("li");
+		item.className = "dm-friend-item";
+		item.innerHTML = `
+			<a class="dm-friend-link" href="direct-chat.html?userId=${encodeURIComponent(id)}&username=${encodeURIComponent(username)}">
+				<img src="${avatarUrl}" alt="Avatar ${username}" />
+				<div>
+					<strong>${username}</strong>
+					<small>Ouvrir la discussion</small>
+				</div>
+			</a>
+		`;
+		dmFriendsList.appendChild(item);
+	}
+}
+
+async function initDmFriendsPanel() {
+	if (!dmFriendsList || !dmFriendsMeta || !window.WithMeAuth?.getFriends) {
+		return;
+	}
+
+	try {
+		dmFriendsMeta.textContent = "Chargement...";
+		const friends = await window.WithMeAuth.getFriends();
+		renderDmFriends(friends);
+	} catch (error) {
+		dmFriendsMeta.textContent = "Indisponible";
+		dmFriendsList.innerHTML = '<li class="dm-friend-empty">Impossible de charger les amis.</li>';
+	}
+}
+
+function mapSidebarPlaylist(playlist) {
+	if (!playlist) {
+		return null;
+	}
+
+	return {
+		id: playlist.id || "",
+		name: playlist.name || "Playlist",
+		url: playlist.external_urls?.spotify || "",
+		owner: playlist.owner?.display_name || playlist.owner?.id || "",
+		totalTracks: Number(playlist.tracks?.total || 0)
+	};
+}
+
+function renderSidebarPlaylists(playlists) {
+	if (!playlistMenuLinks.length || !Array.isArray(playlists) || !playlists.length) {
+		return;
+	}
+
+	playlistMenuLinks.forEach((link, index) => {
+		const playlist = playlists[index];
+		if (!playlist) {
+			return;
+		}
+
+		link.textContent = playlist.name;
+		if (playlist.url) {
+			link.href = playlist.url;
+			link.target = "_blank";
+			link.rel = "noopener noreferrer";
+		}
+
+		const ownerPart = playlist.owner ? `Par ${playlist.owner}` : "";
+		const totalPart = Number.isFinite(playlist.totalTracks) && playlist.totalTracks > 0
+			? `${playlist.totalTracks} titres`
+			: "";
+		const titleParts = [ownerPart, totalPart].filter(Boolean);
+		if (titleParts.length) {
+			link.title = titleParts.join(" · ");
+		}
+	});
+}
+
+async function fetchSidebarPlaylists(token, limit = 4) {
+	if (!token || !playlistMenuLinks.length) {
+		return [];
+	}
+
+	const normalizedLimit = Math.min(10, Math.max(1, Number(limit) || 4));
+	const listing = await spotifyGet(`/me/playlists?limit=${normalizedLimit}&offset=0`, token);
+	const playlistIds = (listing?.items || [])
+		.map((item) => String(item?.id || "").trim())
+		.filter(Boolean)
+		.slice(0, normalizedLimit);
+
+	if (!playlistIds.length) {
+		return [];
+	}
+
+	const fields = "id,name,external_urls.spotify,owner(display_name,id),tracks(total)";
+	const settled = await Promise.allSettled(
+		playlistIds.map((playlistId) => spotifyGet(
+			`/playlists/${encodeURIComponent(playlistId)}?fields=${encodeURIComponent(fields)}&additional_types=track`,
+			token
+		))
+	);
+
+	return settled
+		.filter((result) => result.status === "fulfilled")
+		.map((result) => mapSidebarPlaylist(result.value))
+		.filter(Boolean);
+}
+
 async function initSpotifyHomeData() {
+	renderConcertsLoadingState();
+
 	const token = await getValidSpotifyToken();
 	if (!token) {
+		const fallbackConcerts = await fetchRecentConcerts([]);
+		renderRecentConcerts(fallbackConcerts);
 		return;
 	}
 
@@ -617,24 +1005,27 @@ async function initSpotifyHomeData() {
 			spotifyGet("/me", token),
 			spotifyGet("/me/top/tracks?limit=6&time_range=short_term", token),
 			spotifyGet("/me/player/recently-played?limit=4", token),
-			spotifyGet("/me/top/artists?limit=5&time_range=short_term", token)
+			spotifyGet("/me/top/artists?limit=5&time_range=short_term", token),
+			fetchSidebarPlaylists(token, playlistMenuLinks.length || 4)
 		]);
 
 		const profile = settled[0].status === "fulfilled" ? settled[0].value : null;
 		const topTracksRes = settled[1].status === "fulfilled" ? settled[1].value : null;
 		const recentRes = settled[2].status === "fulfilled" ? settled[2].value : null;
 		const topArtistsRes = settled[3].status === "fulfilled" ? settled[3].value : null;
+		const sidebarPlaylists = settled[4].status === "fulfilled" ? settled[4].value : [];
 
 		const displayName = profile?.display_name || profile?.id || "";
 		if (displayName) {
-			setCookie("spoteur-display-name", displayName, 60 * 60 * 24 * 365);
-			setStoredValue("spoteur-display-name", displayName);
+			setCookie("WithMe-display-name", displayName, 60 * 60 * 24 * 365);
+			setStoredValue("WithMe-display-name", displayName);
 			initWelcome();
 		}
 
 		const topTracks = (topTracksRes?.items || []).map(mapTrackItem).filter(Boolean);
 		const recentTracks = (recentRes?.items || []).map((item) => mapTrackItem(item?.track)).filter(Boolean);
 		const topArtists = (topArtistsRes?.items || []).map(mapArtistRankingItem);
+		const recentConcerts = await fetchRecentConcerts(topArtists);
 
 		quickCards.forEach((card, index) => {
 			if (topTracks[index]) {
@@ -649,9 +1040,12 @@ async function initSpotifyHomeData() {
 		});
 
 		if (topArtists.length) {
-			renderRanking(topArtists);
 			renderFocusArtist(topArtists[0]);
 		}
+
+		renderRecentConcerts(recentConcerts);
+
+		renderSidebarPlaylists(sidebarPlaylists);
 
 		const firstPlayable = recentTracks[0] || topTracks[0];
 		if (firstPlayable) {
@@ -663,6 +1057,8 @@ async function initSpotifyHomeData() {
 		if (String(error?.message || "").includes("spotify_unauthorized")) {
 			clearSpotifyStoredAuth();
 		}
+		const fallbackConcerts = await fetchRecentConcerts([]);
+		renderRecentConcerts(fallbackConcerts);
 	}
 }
 
@@ -702,12 +1098,14 @@ if (themeToggle) {
 		const isDark = document.body.classList.contains("dark-mode");
 		const nextTheme = isDark ? "light" : "dark";
 		applyTheme(nextTheme);
-		setCookie("spoteur-theme", nextTheme, 60 * 60 * 24 * 365);
+		setCookie("WithMe-theme", nextTheme, 60 * 60 * 24 * 365);
 	});
 }
 
 (async function bootHomePage() {
 	initTheme();
+	initHeaderProfile();
+	initDmFriendsPanel();
 	await handleSpotifyOAuthCallbackOnHome();
 	initWelcome();
 	initSpotifyHomeData();

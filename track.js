@@ -2,7 +2,7 @@ const themeToggle = document.getElementById("themeToggle");
 const detailStatus = document.getElementById("detailStatus");
 const trackDetail = document.getElementById("trackDetail");
 
-const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
+const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 
 function getCookie(name) {
 	const parts = document.cookie ? document.cookie.split("; ") : [];
@@ -28,7 +28,7 @@ function applyTheme(mode) {
 }
 
 function initTheme() {
-	const storedTheme = getCookie("spoteur-theme");
+	const storedTheme = getCookie("WithMe-theme");
 	const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 	applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
 }
@@ -84,19 +84,19 @@ async function initTrackPage() {
 		return;
 	}
 
-	const token = await window.spoteurSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+	const token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
 	if (!token) {
 		setStatus("Connecte-toi d'abord via login Spotify.", true);
 		return;
 	}
 
 	try {
-		const track = await window.spoteurSpotify.spotifyGet(`/tracks/${encodeURIComponent(id)}`, token);
+		const track = await window.WithMeSpotify.spotifyGet(`/tracks/${encodeURIComponent(id)}`, token);
 		renderTrack(track);
 		setStatus("Morceau charge.");
 	} catch (error) {
 		if (String(error.message).includes("spotify_unauthorized")) {
-			window.spoteurSpotify.clearSpotifyStoredAuth();
+			window.WithMeSpotify.clearSpotifyStoredAuth();
 			setStatus("Session Spotify expiree. Reconnecte-toi.", true);
 			return;
 		}
@@ -109,7 +109,7 @@ if (themeToggle) {
 		const isDark = document.body.classList.contains("dark-mode");
 		const nextTheme = isDark ? "light" : "dark";
 		applyTheme(nextTheme);
-		setCookie("spoteur-theme", nextTheme, 60 * 60 * 24 * 365);
+		setCookie("WithMe-theme", nextTheme, 60 * 60 * 24 * 365);
 	});
 }
 

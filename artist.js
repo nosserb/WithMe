@@ -3,7 +3,7 @@ const detailStatus = document.getElementById("detailStatus");
 const artistDetail = document.getElementById("artistDetail");
 const concertList = document.getElementById("concertList");
 
-const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
+const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 
 function getCookie(name) {
 	const parts = document.cookie ? document.cookie.split("; ") : [];
@@ -29,7 +29,7 @@ function applyTheme(mode) {
 }
 
 function initTheme() {
-	const storedTheme = getCookie("spoteur-theme");
+	const storedTheme = getCookie("WithMe-theme");
 	const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 	applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
 }
@@ -60,7 +60,7 @@ function getCachedArtistSeed(id, nameHint = "") {
 	}
 
 	try {
-		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const raw = localStorage.getItem("WithMe-artist-stats-v1") || "{}";
 		const store = JSON.parse(raw);
 		const byId = id ? store[`id:${id}`] : null;
 		const byName = normalizedName ? store[`name:${normalizedName}`] : null;
@@ -85,7 +85,7 @@ function cacheArtistStats(artist) {
 	};
 
 	try {
-		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const raw = localStorage.getItem("WithMe-artist-stats-v1") || "{}";
 		const store = JSON.parse(raw);
 		if (snapshot.id) {
 			store[`id:${snapshot.id}`] = snapshot;
@@ -93,7 +93,7 @@ function cacheArtistStats(artist) {
 		if (snapshot.name) {
 			store[`name:${normalizeArtistKey(snapshot.name)}`] = snapshot;
 		}
-		localStorage.setItem("spoteur-artist-stats-v1", JSON.stringify(store));
+		localStorage.setItem("WithMe-artist-stats-v1", JSON.stringify(store));
 	} catch (e) {}
 }
 
@@ -187,9 +187,9 @@ function renderAlbums(albums) {
 async function fetchConcerts(artistName) {
 	concertList.innerHTML = "";
 	const ticketmasterKey = (
-		window.SPOTEUR_CONFIG?.TicketmasterKey
-		|| window.SPOTEUR_CONFIG?.ticketmasterKey
-		|| window.SPOTEUR_CONFIG?.ticketmasterApiKey
+		window.WITHME_CONFIG?.TicketmasterKey
+		|| window.WITHME_CONFIG?.ticketmasterKey
+		|| window.WITHME_CONFIG?.ticketmasterApiKey
 		|| ""
 	).trim();
 
@@ -278,6 +278,7 @@ async function fetchConcerts(artistName) {
 		listToRender.slice(0, 8).forEach((eventItem) => {
 			const li = document.createElement("li");
 			const venueInfo = eventItem?._embedded?.venues?.[0] || {};
+			const eventId = String(eventItem?.id || "").trim();
 			const localDate = eventItem?.dates?.start?.localDate || "";
 			const localTime = eventItem?.dates?.start?.localTime || "";
 			const rawDate = localDate ? `${localDate}${localTime ? `T${localTime}` : ""}` : "";
@@ -289,8 +290,15 @@ async function fetchConcerts(artistName) {
 			const city = venueInfo?.city?.name || "Ville inconnue";
 			const country = venueInfo?.country?.name || "";
 			const ticketUrl = eventItem?.url || "";
+			const fallbackKey = [artistName, localDate, venue, city]
+				.map((value) => String(value || "").trim().replace(/\s+/g, "_"))
+				.filter(Boolean)
+				.join("|")
+				.slice(0, 140);
+			const chatKey = eventId ? `tm:${eventId}` : `local:${fallbackKey || "concert"}`;
+			const chatUrl = `concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
 
-			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
+			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span> <a class="inline-link" href="${chatUrl}">Ouvrir le chat</a>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
 			concertList.appendChild(li);
 		});
 	} catch (error) {
@@ -327,7 +335,7 @@ async function fetchArtistTopTracksWithFallback(id, token) {
 	for (const market of markets) {
 		try {
 			const marketQuery = market ? `?market=${encodeURIComponent(market)}` : "";
-			const payload = await window.spoteurSpotify.spotifyGet(
+			const payload = await window.WithMeSpotify.spotifyGet(
 				`/artists/${encodeURIComponent(id)}/top-tracks${marketQuery}`,
 				token
 			);
@@ -357,7 +365,7 @@ async function fetchArtistAlbumsWithFallback(id, token) {
 	for (const market of markets) {
 		try {
 			const marketQuery = market ? `&market=${encodeURIComponent(market)}` : "";
-			const payload = await window.spoteurSpotify.spotifyGet(
+			const payload = await window.WithMeSpotify.spotifyGet(
 				`/artists/${encodeURIComponent(id)}/albums?include_groups=album,single&limit=10${marketQuery}`,
 				token
 			);
@@ -381,7 +389,7 @@ async function fetchArtistAlbumsWithFallback(id, token) {
 }
 
 async function fetchArtistBySeveralEndpoint(id, token) {
-	const payload = await window.spoteurSpotify.spotifyGet(`/artists?ids=${encodeURIComponent(id)}`, token);
+	const payload = await window.WithMeSpotify.spotifyGet(`/artists?ids=${encodeURIComponent(id)}`, token);
 	const artists = payload?.artists || [];
 	return artists[0] || null;
 }
@@ -472,7 +480,7 @@ async function fetchBestArtistCandidate(targetName, token, preferredId = "") {
 		return null;
 	}
 
-	const searchPayload = await window.spoteurSpotify.spotifyGet(
+	const searchPayload = await window.WithMeSpotify.spotifyGet(
 		`/search?q=${encodeURIComponent(queryName)}&type=artist&limit=10`,
 		token
 	);
@@ -485,7 +493,7 @@ async function fetchBestArtistCandidate(targetName, token, preferredId = "") {
 	let detailedCandidates = candidates;
 	if (ids.length) {
 		try {
-			const bulkPayload = await window.spoteurSpotify.spotifyGet(
+			const bulkPayload = await window.WithMeSpotify.spotifyGet(
 				`/artists?ids=${encodeURIComponent(ids.join(","))}`,
 				token
 			);
@@ -540,7 +548,7 @@ async function enrichArtistDataByName(artist, token) {
 		return artist;
 	}
 
-	const payload = await window.spoteurSpotify.spotifyGet(
+	const payload = await window.WithMeSpotify.spotifyGet(
 		`/search?q=${encodeURIComponent(artist.name)}&type=artist&limit=5`,
 		token
 	);
@@ -554,7 +562,7 @@ async function enrichArtistDataByName(artist, token) {
 		return artist;
 	}
 
-	const full = await window.spoteurSpotify.spotifyGet(`/artists/${encodeURIComponent(best.id)}`, token);
+	const full = await window.WithMeSpotify.spotifyGet(`/artists/${encodeURIComponent(best.id)}`, token);
 	return full || artist;
 }
 
@@ -564,7 +572,7 @@ async function enrichArtistStatsBySearch(artist, token, nameHint = "", preferred
 		return artist;
 	}
 
-	const payload = await window.spoteurSpotify.spotifyGet(
+	const payload = await window.WithMeSpotify.spotifyGet(
 		`/search?q=${encodeURIComponent(targetName)}&type=artist&limit=10`,
 		token
 	);
@@ -601,7 +609,7 @@ async function fetchTopTracksBySearchFallback(artist, token) {
 		return [];
 	}
 
-	const payload = await window.spoteurSpotify.spotifyGet(
+	const payload = await window.WithMeSpotify.spotifyGet(
 		`/search?q=${encodeURIComponent(`artist:${artistName}`)}&type=track&limit=10`,
 		token
 	);
@@ -635,7 +643,7 @@ async function initArtistPage() {
 		return;
 	}
 
-	const token = await window.spoteurSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+	const token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
 	if (!token) {
 		setStatus("Connecte-toi d'abord via login Spotify.", true);
 		return;
@@ -643,7 +651,7 @@ async function initArtistPage() {
 
 	try {
 		const settled = await Promise.allSettled([
-			window.spoteurSpotify.spotifyGet(`/artists/${encodeURIComponent(id)}`, token),
+			window.WithMeSpotify.spotifyGet(`/artists/${encodeURIComponent(id)}`, token),
 			fetchArtistTopTracksWithFallback(id, token)
 		]);
 
@@ -743,7 +751,7 @@ async function initArtistPage() {
 		setStatus("Artiste charge.");
 	} catch (error) {
 		if (String(error.message).includes("spotify_unauthorized")) {
-			window.spoteurSpotify.clearSpotifyStoredAuth();
+			window.WithMeSpotify.clearSpotifyStoredAuth();
 			setStatus("Session Spotify expiree. Reconnecte-toi.", true);
 			return;
 		}
@@ -771,7 +779,7 @@ if (themeToggle) {
 		const isDark = document.body.classList.contains("dark-mode");
 		const nextTheme = isDark ? "light" : "dark";
 		applyTheme(nextTheme);
-		setCookie("spoteur-theme", nextTheme, 60 * 60 * 24 * 365);
+		setCookie("WithMe-theme", nextTheme, 60 * 60 * 24 * 365);
 	});
 }
 
