@@ -5,10 +5,12 @@ const searchBtn = document.getElementById("searchBtn");
 const searchStatus = document.getElementById("searchStatus");
 const trackResults = document.getElementById("trackResults");
 const artistResults = document.getElementById("artistResults");
+const userResults = document.getElementById("userResults");
 const tracksSection = document.getElementById("tracksSection");
 const artistsSection = document.getElementById("artistsSection");
+const usersSection = document.getElementById("usersSection");
 
-const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
+const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 const SPOTIFY_SEARCH_LIMIT_MAX = 50;
 const SPOTIFY_SCROLL_BATCH_SIZE = 10;
 const SCROLL_LOAD_THRESHOLD_PX = 220;
@@ -50,7 +52,7 @@ function cacheArtistStats(artist) {
 	};
 
 	try {
-		const raw = localStorage.getItem("spoteur-artist-stats-v1") || "{}";
+		const raw = localStorage.getItem("WithMe-artist-stats-v1") || "{}";
 		const store = JSON.parse(raw);
 		if (snapshot.id) {
 			store[`id:${snapshot.id}`] = snapshot;
@@ -58,7 +60,7 @@ function cacheArtistStats(artist) {
 		if (snapshot.name) {
 			store[`name:${normalizeArtistKey(snapshot.name)}`] = snapshot;
 		}
-		localStorage.setItem("spoteur-artist-stats-v1", JSON.stringify(store));
+		localStorage.setItem("WithMe-artist-stats-v1", JSON.stringify(store));
 	} catch (e) {}
 }
 
@@ -71,7 +73,7 @@ function applyTheme(mode) {
 }
 
 function initTheme() {
-	const storedTheme = getCookie("spoteur-theme");
+	const storedTheme = getCookie("WithMe-theme");
 	const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 	applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
 }
@@ -84,6 +86,7 @@ function setStatus(message, isError = false) {
 function clearResults() {
 	trackResults.innerHTML = "";
 	artistResults.innerHTML = "";
+	userResults.innerHTML = "";
 }
 
 function msToMinSec(ms) {
@@ -132,6 +135,26 @@ function createArtistCard(artist) {
 	return card;
 }
 
+function createUserCard(user) {
+	const username = String(user?.username || "Utilisateur").trim() || "Utilisateur";
+	const email = String(user?.email || "").trim();
+	const bio = String(user?.bio || "").trim();
+	const avatar = user?.avatarUrl || "img/artist-focus.svg";
+
+	const card = document.createElement("article");
+	card.className = "result-card user-card";
+	card.innerHTML = `
+		<img src="${avatar}" alt="Profil ${username}" />
+		<div>
+			<h4>${username}</h4>
+			<p>${email || "Email indisponible"}</p>
+			<small>${bio || "Aucune bio"}</small>
+		</div>
+		<a class="detail-link" href="user.html?id=${encodeURIComponent(user?.id || "")}">Voir profil</a>
+	`;
+	return card;
+}
+
 function normalizeSpotifyLimit(limit) {
 	const parsed = Number(limit);
 	if (!Number.isFinite(parsed)) {
@@ -157,6 +180,11 @@ function createTypeState(enabled) {
 }
 
 function buildSearchSession(query, token, rawType, options) {
+	const wantsTrack = rawType === "track,artist,user" || rawType === "track" || rawType === "track,artist";
+	const wantsArtist = rawType === "track,artist,user" || rawType === "artist" || rawType === "track,artist";
+	const wantsUser = rawType === "track,artist,user" || rawType === "user";
+	const canUseSpotify = Boolean(token);
+
 	const pageSize = normalizeSpotifyLimit(options.pageSize ?? SPOTIFY_SCROLL_BATCH_SIZE);
 	return {
 		query,
@@ -165,8 +193,9 @@ function buildSearchSession(query, token, rawType, options) {
 		omitLimit: Boolean(options.omitLimit),
 		hasRetriedLimit: Boolean(options.hasRetriedLimit),
 		rawType,
-		track: createTypeState(rawType === "track,artist" || rawType === "track"),
-		artist: createTypeState(rawType === "track,artist" || rawType === "artist")
+		track: createTypeState(wantsTrack && canUseSpotify),
+		artist: createTypeState(wantsArtist && canUseSpotify),
+		user: createTypeState(wantsUser)
 	};
 }
 
@@ -176,6 +205,14 @@ function appendResults(type, items) {
 	}
 	if (type === "track") {
 		items.forEach((track) => trackResults.appendChild(createTrackCard(track)));
+		return;
+	}
+	if (type === "artist") {
+		items.forEach((artist) => artistResults.appendChild(createArtistCard(artist)));
+		return;
+	}
+	if (type === "user") {
+		items.forEach((user) => userResults.appendChild(createUserCard(user)));
 		return;
 	}
 	items.forEach((artist) => artistResults.appendChild(createArtistCard(artist)));
@@ -193,7 +230,13 @@ function updateStatusFromSession() {
 		setStatus(`Resultats affiches: ${searchSession.artist.loaded} artiste(s).`);
 		return;
 	}
-	setStatus(`Resultats affiches: ${searchSession.track.loaded} morceau(x), ${searchSession.artist.loaded} artiste(s).`);
+	if (searchSession.rawType === "user") {
+		setStatus(`Resultats affiches: ${searchSession.user.loaded} utilisateur(s).`);
+		return;
+	}
+	setStatus(
+		`Resultats affiches: ${searchSession.track.loaded} morceau(x), ${searchSession.artist.loaded} artiste(s), ${searchSession.user.loaded} utilisateur(s).`
+	);
 }
 
 function updateEmptyState() {
@@ -205,6 +248,9 @@ function updateEmptyState() {
 	}
 	if (searchSession.artist.enabled && searchSession.artist.loaded === 0 && !searchSession.artist.hasMore) {
 		artistResults.innerHTML = '<p class="empty-result">Aucun artiste trouve.</p>';
+	}
+	if (searchSession.user.enabled && searchSession.user.loaded === 0 && !searchSession.user.hasMore) {
+		userResults.innerHTML = '<p class="empty-result">Aucun utilisateur trouve.</p>';
 	}
 }
 
@@ -219,10 +265,58 @@ function updateSectionsVisibility(rawType) {
 	if (artistsSection) {
 		artistsSection.style.display = rawType === "track" ? "none" : "";
 	}
+	if (usersSection) {
+		usersSection.style.display = rawType === "track" || rawType === "artist" ? "none" : "";
+	}
+}
+
+async function fetchUserPage() {
+	if (!searchSession) {
+		return { items: [], total: 0 };
+	}
+
+	const typeState = searchSession.user;
+	const token = window.WithMeAuth?.getStoredToken?.() || "";
+	if (!token) {
+		throw new Error("withme_unauthorized");
+	}
+
+	const params = new URLSearchParams({
+		q: searchSession.query,
+		offset: String(typeState.offset),
+		limit: String(searchSession.pageSize)
+	});
+
+	const response = await fetch(`/api/users/search?${params.toString()}`, {
+		headers: {
+			Authorization: `Bearer ${token}`
+		}
+	});
+
+	if (!response.ok) {
+		if (response.status === 401) {
+			throw new Error("withme_unauthorized");
+		}
+		throw new Error(`withme_error_${response.status}`);
+	}
+
+	const payload = await response.json();
+	return {
+		items: payload?.items || [],
+		total: Number(payload?.total || 0)
+	};
 }
 
 async function fetchSearchPage(type) {
 	if (!searchSession) {
+		return { items: [], total: 0 };
+	}
+
+	if (type === "user") {
+		return fetchUserPage();
+	}
+
+	if (!searchSession.token) {
 		return { items: [], total: 0 };
 	}
 
@@ -237,7 +331,7 @@ async function fetchSearchPage(type) {
 		searchParams.set("limit", String(searchSession.pageSize));
 	}
 
-	const payload = await window.spoteurSpotify.spotifyGet(`/search?${searchParams.toString()}`, searchSession.token);
+	const payload = await window.WithMeSpotify.spotifyGet(`/search?${searchParams.toString()}`, searchSession.token);
 	const container = payload?.[`${type}s`];
 	return {
 		items: container?.items || [],
@@ -285,8 +379,15 @@ function parseSpotifyError(message) {
 }
 
 async function handleSearchError(error) {
+	if (String(error?.message || "") === "withme_unauthorized") {
+		setStatus("Session WithMe expiree. Reconnecte-toi.", true);
+		searchSession = null;
+		window.location.href = "login.html";
+		return;
+	}
+
 	if (String(error?.message || "").includes("spotify_unauthorized")) {
-		window.spoteurSpotify.clearSpotifyStoredAuth();
+		window.WithMeSpotify.clearSpotifyStoredAuth();
 		setStatus("Session Spotify expiree. Reconnecte-toi.", true);
 		searchSession = null;
 		return;
@@ -332,6 +433,9 @@ async function loadInitialBatches() {
 	if (searchSession.artist.enabled) {
 		tasks.push({ type: "artist", promise: loadNextBatch("artist") });
 	}
+	if (searchSession.user.enabled) {
+		tasks.push({ type: "user", promise: loadNextBatch("user") });
+	}
 
 	const settled = await Promise.allSettled(tasks.map((task) => task.promise));
 	for (let i = 0; i < settled.length; i += 1) {
@@ -351,6 +455,9 @@ async function loadMoreIfNearBottom() {
 		}
 		if (searchSession.artist.enabled && searchSession.artist.hasMore) {
 			tasks.push(loadNextBatch("artist"));
+		}
+		if (searchSession.user.enabled && searchSession.user.hasMore) {
+			tasks.push(loadNextBatch("user"));
 		}
 
 		if (!tasks.length) {
@@ -374,20 +481,33 @@ async function runSearch(options = {}) {
 	}
 
 	if (!SPOTIFY_CLIENT_ID) {
-		setStatus("spotifyClientId manquant dans spotify-config.js", true);
-		return;
+		if (searchType.value !== "user") {
+			setStatus("spotifyClientId manquant dans spotify-config.js", true);
+			return;
+		}
 	}
 
-	const token = await window.spoteurSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
-	if (!token) {
+	const rawType = searchType.value;
+	const wantsSpotify = rawType.includes("track") || rawType.includes("artist");
+	const wantsUsers = rawType.includes("user");
+
+	let token = "";
+	if (wantsSpotify && SPOTIFY_CLIENT_ID) {
+		token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+	}
+
+	if (wantsSpotify && !token && !wantsUsers) {
 		setStatus("Connecte-toi d'abord sur la page login Spotify.", true);
 		return;
 	}
 
-	setStatus("Recherche en cours...");
+	if (wantsSpotify && !token && wantsUsers) {
+		setStatus("Spotify non connecte: affichage des utilisateurs uniquement.");
+	} else {
+		setStatus("Recherche en cours...");
+	}
 	clearResults();
 
-	const rawType = searchType.value;
 	updateSectionsVisibility(rawType);
 	searchSession = buildSearchSession(query, token, rawType, options);
 
@@ -418,7 +538,7 @@ if (themeToggle) {
 		const isDark = document.body.classList.contains("dark-mode");
 		const nextTheme = isDark ? "light" : "dark";
 		applyTheme(nextTheme);
-		setCookie("spoteur-theme", nextTheme, 60 * 60 * 24 * 365);
+		setCookie("WithMe-theme", nextTheme, 60 * 60 * 24 * 365);
 	});
 }
 

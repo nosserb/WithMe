@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>WithMe - Profil</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css?v=20260329-profile-layout2" />
+</head>
+<body>
+	<header class="page-header">
+		<div class="page-header-left">
+			<div class="brand-inline">
+				<span class="brand-glyph" aria-hidden="true">WM</span>
+				<p class="eyebrow">WithMe</p>
+			</div>
+			<nav class="page-nav" aria-label="Navigation principale">
+				<a href="index.html">Dashboard</a>
+				<a href="search.html">Recherche</a>
+				<a class="active" href="profile.html">Profil</a>
+			</nav>
+		</div>
+		<div class="header-meta">
+			<h1>Profil utilisateur</h1>
+			<p class="header-sub">Modifie ton pseudo, email, bio, photo de profil et image de fond.</p>
+		</div>
+		<div class="header-actions">
+			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
+			<a id="authActionBtn" class="login-top-btn" href="login.html">Connexion</a>
+		</div>
+	</header>
+
+	<main class="card profile-page">
+		<section class="profile-hero" id="profileHero">
+			<div class="profile-hero-banner" id="profileBanner"></div>
+			<div class="profile-hero-meta">
+				<img id="profileAvatar" class="profile-avatar" src="img/artist-focus.svg" alt="Avatar profil" />
+				<div>
+					<h2 id="profileDisplayName">Ton profil</h2>
+					<p id="profileDisplayEmail" class="profile-subline">Compte WithMe</p>
+				</div>
+			</div>
+			<div class="profile-hero-media-actions">
+				<button id="changeAvatarBtn" class="secondary-pill" type="button">Ajouter une PDP</button>
+				<button id="changeBannerBtn" class="secondary-pill" type="button">Ajouter une banniere</button>
+				<p class="profile-hint">Formats acceptes: JPG, PNG, WEBP, GIF (max 2 Mo par image).</p>
+			</div>
+			<input id="avatarInput" class="sr-only-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+			<input id="bannerInput" class="sr-only-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+		</section>
+
+		<section class="profile-grid">
+			<form id="profileForm" class="profile-form" novalidate>
+				<h3>Informations</h3>
+				<label>
+					<span>Pseudo</span>
+					<input id="profileUsername" type="text" minlength="3" required />
+				</label>
+				<label>
+					<span>Email</span>
+					<input id="profileEmail" type="email" required />
+				</label>
+				<label>
+					<span>Bio</span>
+					<textarea id="profileBio" rows="5" maxlength="400" placeholder="Parle un peu de toi..."></textarea>
+				</label>
+
+				<div class="profile-actions">
+					<button id="saveProfileBtn" class="login-top-btn" type="submit">Enregistrer</button>
+					<span id="profileStatus" class="profile-status" aria-live="polite"></span>
+				</div>
+			</form>
+
+			<section class="profile-media-card friends-panel">
+				<h3>Notifications</h3>
+				<p id="notificationsStatus" class="profile-hint">Chargement des notifications...</p>
+				<h4 class="mini-section-title">Demandes recues</h4>
+				<ul id="incomingRequestsList" class="friends-list"></ul>
+				<h4 class="mini-section-title">Demandes envoyees</h4>
+				<ul id="outgoingRequestsList" class="friends-list"></ul>
+
+				<h3>Mes amis</h3>
+				<p id="friendsStatus" class="profile-hint">Chargement des amis...</p>
+				<ul id="friendsList" class="friends-list"></ul>
+			</section>
+		</section>
+	</main>
+
+	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="auth-client.js?v=20260329-friends2"></script>
+	<script src="header-auth.js?v=20260328-1"></script>
+	<script src="profile.js?v=20260329-profile-layout3"></script>
+</body>
+</html>

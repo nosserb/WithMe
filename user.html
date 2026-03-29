@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>WithMe - Profil utilisateur</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="style.css?v=20260329-user1" />
+</head>
+<body>
+	<header class="page-header">
+		<div class="page-header-left">
+			<div class="brand-inline">
+				<span class="brand-glyph" aria-hidden="true">WM</span>
+				<p class="eyebrow">WithMe</p>
+			</div>
+			<nav class="page-nav" aria-label="Navigation principale">
+				<a href="index.html">Dashboard</a>
+				<a href="search.html">Recherche</a>
+				<a href="profile.html">Profil</a>
+			</nav>
+		</div>
+		<div class="header-meta">
+			<h1>Profil utilisateur</h1>
+			<p class="header-sub">Decouvre son profil WithMe.</p>
+		</div>
+		<div class="header-actions">
+			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
+			<a id="authActionBtn" class="login-top-btn" href="login.html">Connexion</a>
+		</div>
+	</header>
+
+	<main class="card profile-page">
+		<section class="profile-hero" id="userHero">
+			<div class="profile-hero-banner" id="userBanner"></div>
+			<div class="profile-hero-meta">
+				<img id="userAvatar" class="profile-avatar" src="img/artist-focus.svg" alt="Avatar utilisateur" />
+				<div>
+					<h2 id="userName">Utilisateur</h2>
+					<p id="userEmail" class="profile-subline">Compte WithMe</p>
+				</div>
+			</div>
+		</section>
+
+		<section class="profile-grid">
+			<article class="profile-form">
+				<h3>Bio</h3>
+				<p id="userBio" class="public-bio">Aucune bio.</p>
+			</article>
+
+			<article class="profile-media-card">
+				<h3>Infos</h3>
+				<p id="userSpotifyState" class="profile-hint">Spotify non lie</p>
+				<div class="friend-action-row">
+					<button id="friendActionBtn" class="login-top-btn" type="button">Envoyer la demande</button>
+					<button id="friendSecondaryBtn" class="secondary-pill" type="button" hidden></button>
+					<span id="friendStatus" class="profile-status" aria-live="polite"></span>
+				</div>
+				<a class="secondary-pill" href="search.html">Retour a la recherche</a>
+			</article>
+		</section>
+	</main>
+
+	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="auth-client.js?v=20260329-friends2"></script>
+	<script src="header-auth.js?v=20260328-1"></script>
+	<script src="user.js?v=20260329-friends2"></script>
+</body>
+</html>
