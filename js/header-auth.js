@@ -6,7 +6,7 @@
 		}
 
 		authBtn.textContent = "Connexion";
-		authBtn.setAttribute("href", "login.html");
+		authBtn.setAttribute("href", "/html/login.html");
 
 		let user = null;
 		try {
@@ -28,7 +28,7 @@
 			try {
 				await window.WithMeAuth.logout();
 			} finally {
-				window.location.href = "login.html";
+				window.location.href = "/html/login.html";
 			}
 		});
 	}

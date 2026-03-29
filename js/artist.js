@@ -132,7 +132,7 @@ function renderArtist(artist, topTracks) {
 	const genres = artist.genres?.join(", ") || "Non fourni par Spotify";
 	const tracksHtml = (topTracks || []).slice(0, 5).map((track) => {
 		const artists = (track.artists || []).map((a) => a.name).join(", ");
-		return `<li><a class=\"inline-link\" href=\"track.html?id=${encodeURIComponent(track.id)}\">${track.name}</a> · ${artists}</li>`;
+		return `<li><a class=\"inline-link\" href=\"/html/track.html?id=${encodeURIComponent(track.id)}\">${track.name}</a> · ${artists}</li>`;
 	}).join("");
 	const hasMissingStats = followersValue <= 0 || popularityValue <= 0 || !(artist.genres?.length);
 
@@ -296,7 +296,7 @@ async function fetchConcerts(artistName) {
 				.join("|")
 				.slice(0, 140);
 			const chatKey = eventId ? `tm:${eventId}` : `local:${fallbackKey || "concert"}`;
-			const chatUrl = `concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
+			const chatUrl = `/html/concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
 
 			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span> <a class="inline-link" href="${chatUrl}">Ouvrir le chat</a>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
 			concertList.appendChild(li);

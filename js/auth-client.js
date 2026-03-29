@@ -241,7 +241,7 @@
 		return payload || { ok: false, removed: false };
 	}
 
-	async function requireAuthOrRedirect(redirectTo = "login.html") {
+	async function requireAuthOrRedirect(redirectTo = "/html/login.html") {
 		const token = getStoredToken();
 		if (!token) {
 			window.location.href = redirectTo;

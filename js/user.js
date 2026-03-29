@@ -223,7 +223,7 @@ async function toggleFriendship() {
 		const errorCode = String(error?.message || "");
 		if (errorCode === "auth_required") {
 			setFriendStatus("Session expiree, reconnecte-toi.", true);
-			window.location.href = "login.html";
+			window.location.href = "/html/login.html";
 			return;
 		}
 		if (errorCode === "incoming_request_exists") {
@@ -262,7 +262,7 @@ async function handleSecondaryFriendAction() {
 	} catch (error) {
 		const errorCode = String(error?.message || "");
 		if (errorCode === "auth_required") {
-			window.location.href = "login.html";
+			window.location.href = "/html/login.html";
 			return;
 		}
 		setFriendStatus("Impossible de mettre a jour la demande.", true);
@@ -272,7 +272,7 @@ async function handleSecondaryFriendAction() {
 }
 
 async function bootUserPage() {
-	const authUser = await window.WithMeAuth.requireAuthOrRedirect("login.html");
+	const authUser = await window.WithMeAuth.requireAuthOrRedirect("/html/login.html");
 	if (!authUser) {
 		return;
 	}
@@ -294,7 +294,7 @@ async function bootUserPage() {
 	} catch (error) {
 		const code = String(error?.message || "");
 		if (code === "auth_required") {
-			window.location.href = "login.html";
+			window.location.href = "/html/login.html";
 			return;
 		}
 		if (code === "user_not_found") {

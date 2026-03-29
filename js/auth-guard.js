@@ -1,16 +1,16 @@
 (async function () {
 	if (!window.WithMeAuth) {
-		window.location.href = "login.html";
+		window.location.href = "/html/login.html";
 		return;
 	}
 
-	const user = await window.WithMeAuth.requireAuthOrRedirect("login.html");
+	const user = await window.WithMeAuth.requireAuthOrRedirect("/html/login.html");
 	if (!user) {
 		return;
 	}
 
 	if (!user.spotifyLinked) {
-		window.location.href = "login.html?step=spotify";
+		window.location.href = "/html/login.html?step=spotify";
 		return;
 	}
 
@@ -19,6 +19,6 @@
 		: false;
 
 	if (!hasSpotifySession) {
-		window.location.href = "login.html?step=spotify&resync=1";
+		window.location.href = "/html/login.html?step=spotify&resync=1";
 	}
 })();

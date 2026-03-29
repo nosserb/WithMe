@@ -52,7 +52,7 @@ function getTrackId() {
 
 function renderTrack(track) {
 	const cover = track.album?.images?.[0]?.url || "img/cover-electric.svg";
-	const artists = (track.artists || []).map((a) => `<a class="inline-link" href="artist.html?id=${encodeURIComponent(a.id)}&name=${encodeURIComponent(a.name || "")}">${a.name}</a>`).join(", ");
+	const artists = (track.artists || []).map((a) => `<a class="inline-link" href="/html/artist.html?id=${encodeURIComponent(a.id)}&name=${encodeURIComponent(a.name || "")}">${a.name}</a>`).join(", ");
 	const album = track.album?.name || "-";
 	const releaseDate = track.album?.release_date || "-";
 	const popularity = track.popularity ?? "-";

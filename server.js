@@ -1585,7 +1585,7 @@ app.get("/api/health", (req, res) => {
 app.use(express.static(__dirname));
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "html", "index.html"));
 });
 
 function createHttpsOptions() {
