@@ -14,14 +14,57 @@ const CANONICAL_HOST = process.env.APP_HOST || "127.0.0.1";
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || path.join(__dirname, "certs", "localhost-key.pem");
 const TLS_CERT_PATH = process.env.TLS_CERT_PATH || path.join(__dirname, "certs", "localhost-cert.pem");
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const IS_RAILWAY = Boolean(process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT);
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://localhost/spoteur",
-});
+function buildPostgresConfig() {
+  const connectionString =
+    process.env.DATABASE_URL
+    || process.env.POSTGRES_URL
+    || process.env.POSTGRESQL_URL
+    || process.env.PG_CONNECTION_STRING
+    || "";
+
+  if (connectionString) {
+    return {
+      connectionString,
+      ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false
+    };
+  }
+
+  const hasDiscreteConfig = Boolean(
+    process.env.PGHOST
+    || process.env.PGPORT
+    || process.env.PGUSER
+    || process.env.PGDATABASE
+  );
+
+  if (hasDiscreteConfig) {
+    return {
+      host: process.env.PGHOST || "127.0.0.1",
+      port: Number(process.env.PGPORT || 5432),
+      user: process.env.PGUSER || "postgres",
+      password: process.env.PGPASSWORD || "",
+      database: process.env.PGDATABASE || "spoteur",
+      ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false
+    };
+  }
+
+  if (IS_PRODUCTION || IS_RAILWAY) {
+    throw new Error("PostgreSQL config missing: set DATABASE_URL (or PGHOST/PGUSER/PGDATABASE/PGPASSWORD) in Railway variables.");
+  }
+
+  return {
+    connectionString: "postgresql://localhost/spoteur",
+    ssl: false
+  };
+}
+
+const pool = new Pool(buildPostgresConfig());
 
 async function run(sql, params = []) {
   const result = await pool.query(sql, params);
-  return { lastID: result.rows[0]?.id, changes: result.rowCount };
+  return result;
 }
 
 async function get(sql, params = []) {
@@ -1518,12 +1561,17 @@ function startHttpRedirectServer() {
 
 Promise.all([initDb(), initConcertChatDb(), initPrivateMessageDb()])
   .then(() => {
-    const httpsOptions = createHttpsOptions();
+    if (IS_PRODUCTION || IS_RAILWAY) {
+      app.listen(HTTP_PORT, () => {
+        console.log(`WithMe server listening on port ${HTTP_PORT}`);
+      });
+      return;
+    }
 
+    const httpsOptions = createHttpsOptions();
     https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
       console.log(`WithMe HTTPS server listening on https://localhost:${HTTPS_PORT}`);
     });
-
     startHttpRedirectServer();
   })
   .catch((error) => {
