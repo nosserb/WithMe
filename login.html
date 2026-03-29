@@ -3,17 +3,19 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Connexion - Spoteur</title>
+	<title>Connexion - WithMe</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
 	<style>
 		:root {
-			--bg-main: #05070b;
-			--text: #f4f8ff;
-			--muted: #9eacbf;
-			--line: #2a3445;
-			--accent: #1ed760;
+			--bg-main: #e6e1f0;
+			--text: #161821;
+			--muted: #7b8193;
+			--line: #e1e4f1;
+			--accent: #111217;
+			--accent-soft: #2a2c35;
+			--danger: #d64d6c;
 		}
 
 		* {
@@ -25,36 +27,65 @@
 			min-height: 100vh;
 			display: grid;
 			place-items: center;
-			font-family: "Space Grotesk", sans-serif;
+			font-family: "Sora", sans-serif;
 			color: var(--text);
 			background:
-				radial-gradient(circle at 20% 20%, #1b4a34 0, rgba(27, 74, 52, 0) 35%),
-				radial-gradient(circle at 80% 10%, #153058 0, rgba(21, 48, 88, 0) 36%),
+				radial-gradient(circle at 14% 18%, rgba(255, 200, 218, 0.55) 0, rgba(255, 200, 218, 0) 42%),
+				radial-gradient(circle at 83% 14%, rgba(183, 209, 255, 0.65) 0, rgba(183, 209, 255, 0) 45%),
 				var(--bg-main);
 			padding: 20px;
 		}
 
 		.auth-card {
 			width: 100%;
-			max-width: 420px;
-			padding: 22px;
-			border-radius: 18px;
-			background: linear-gradient(165deg, rgba(27, 35, 48, 0.92), rgba(15, 21, 30, 0.9));
-			border: 1px solid rgba(255, 255, 255, 0.1);
-			box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+			max-width: 500px;
+			padding: 24px;
+			border-radius: 12px;
+			background: linear-gradient(180deg, #ffffff, #f7f8ff);
+			border: 1px solid var(--line);
+			box-shadow: 0 24px 52px rgba(31, 34, 47, 0.11);
+			animation: rise 420ms ease both;
+		}
+
+		@keyframes rise {
+			from {
+				opacity: 0;
+				transform: translateY(12px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
 		}
 
 		h1 {
 			margin: 0 0 6px;
-			font-family: "Bebas Neue", sans-serif;
-			font-size: 2rem;
-			font-weight: 400;
-			letter-spacing: 1px;
+			font-family: "Space Grotesk", sans-serif;
+			font-size: 1.95rem;
+			font-weight: 700;
+			letter-spacing: 0.01em;
 		}
 
 		p {
-			margin: 0 0 18px;
+			margin: 0 0 14px;
 			color: var(--muted);
+		}
+
+		.panel {
+			margin-top: 12px;
+			padding: 14px;
+			border-radius: 14px;
+			border: 1px solid var(--line);
+			background: #f5f7fe;
+		}
+
+		.step-title {
+			margin: 0 0 10px;
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: 0.1em;
+			text-transform: uppercase;
+			color: #5f4ba4;
 		}
 
 		form {
@@ -65,10 +96,16 @@
 		input {
 			width: 100%;
 			padding: 11px;
-			border-radius: 10px;
+			border-radius: 6px;
 			border: 1px solid var(--line);
-			background: rgba(11, 16, 24, 0.9);
+			background: #ffffff;
 			color: var(--text);
+			font: inherit;
+		}
+
+		input:focus-visible {
+			outline: 2px solid rgba(128, 106, 196, 0.4);
+			outline-offset: 1px;
 		}
 
 		button,
@@ -77,51 +114,120 @@
 			text-align: center;
 			text-decoration: none;
 			padding: 10px 12px;
-			border-radius: 999px;
+			border-radius: 6px;
 			font-weight: 700;
 		}
 
 		button {
 			border: 0;
 			cursor: pointer;
-			background: linear-gradient(120deg, var(--accent), #5de79a);
-			color: #04250f;
+			background: linear-gradient(118deg, var(--accent), var(--accent-soft));
+			color: #ffffff;
+			transition: transform 130ms ease, filter 140ms ease;
+		}
+
+		button:hover {
+			filter: brightness(1.02);
+			transform: translateY(-1px);
+		}
+
+		button.secondary {
+			background: #e9ecf8;
+			color: #1e2231;
+		}
+
+		button:disabled {
+			opacity: 0.45;
+			cursor: not-allowed;
+		}
+
+		.split {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
 		}
 
 		.back-link {
 			margin-top: 10px;
-			background: rgba(255, 255, 255, 0.12);
-			color: var(--text);
+			background: #111217;
+			color: #ffffff;
+		}
+
+		.status {
+			margin-top: 10px;
+			font-size: 0.95rem;
+			color: #5f667b;
+		}
+
+		.status.error {
+			color: var(--danger);
+		}
+
+		.hidden {
+			display: none;
 		}
 	</style>
 </head>
 <body>
 	<section class="auth-card">
-		<h1>Connexion</h1>
-		<p>Connecte-toi avec Spotify pour recuperer ton pseudo automatiquement.</p>
-		<form id="spotifyLoginForm">
-			<button id="spotifyConnectBtn" type="submit">Se connecter avec Spotify</button>
-		</form>
-		<p id="statusText" aria-live="polite"></p>
-		<p id="redirectInfo"></p>
+		<h1>Bienvenue sur WithMe</h1>
+		<p>Commence par ton compte WithMe, puis connecte Spotify pour synchroniser ta musique.</p>
+
+		<div class="panel">
+			<h2 class="step-title">Etape 1 · Compte WithMe</h2>
+			<form id="registerForm">
+				<input id="registerUsername" type="text" placeholder="Pseudo WithMe" minlength="3" required />
+				<input id="registerEmail" type="email" placeholder="Email" required />
+				<input id="registerPassword" type="password" placeholder="Mot de passe (min 8 caracteres)" minlength="8" required />
+				<button type="submit">Creer un compte</button>
+			</form>
+			<div class="split" style="margin-top: 10px;">
+				<input id="loginEmail" type="email" placeholder="Email existant" />
+				<input id="loginPassword" type="password" placeholder="Mot de passe" />
+			</div>
+			<button id="loginBtn" class="secondary" type="button" style="margin-top: 8px; width: 100%;">Se connecter</button>
+		</div>
+
+		<div class="panel">
+			<h2 class="step-title">Etape 2 · Connexion Spotify</h2>
+			<p id="withMeState">Compte WithMe non connecte.</p>
+			<button id="spotifyConnectBtn" type="button" disabled>Lier mon compte Spotify</button>
+		</div>
+
+		<p id="statusText" class="status" aria-live="polite"></p>
+		<p id="redirectInfo" class="status"></p>
 		<a class="back-link" href="index.html">Retour au dashboard</a>
 	</section>
 
-	<script src="spotify-config.js?v=20260327"></script>
+	<script src="spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="auth-client.js?v=20260328"></script>
 	<script>
-		const spotifyLoginForm = document.getElementById("spotifyLoginForm");
+		const registerForm = document.getElementById("registerForm");
+		const registerUsername = document.getElementById("registerUsername");
+		const registerEmail = document.getElementById("registerEmail");
+		const registerPassword = document.getElementById("registerPassword");
+		const loginEmail = document.getElementById("loginEmail");
+		const loginPassword = document.getElementById("loginPassword");
+		const loginBtn = document.getElementById("loginBtn");
+		const spotifyConnectBtn = document.getElementById("spotifyConnectBtn");
+		const withMeState = document.getElementById("withMeState");
 		const statusText = document.getElementById("statusText");
 		const redirectInfo = document.getElementById("redirectInfo");
-		const SPOTIFY_CLIENT_ID = window.SPOTEUR_CONFIG?.spotifyClientId || "";
+
+		const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 		const CURRENT_LOGIN_URI = `${window.location.origin}${window.location.pathname}`;
-		const CONFIG_REDIRECT_URI = (window.SPOTEUR_CONFIG?.redirectUri || "").trim();
-		const CONFIG_LOCAL_REDIRECT_URI = (window.SPOTEUR_CONFIG?.localRedirectUri || "").trim();
-		const IS_LOCAL_HOST = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
-		const SPOTIFY_REDIRECT_URI = (IS_LOCAL_HOST ? CONFIG_LOCAL_REDIRECT_URI : CONFIG_REDIRECT_URI) || CURRENT_LOGIN_URI;
-		const POST_LOGIN_REDIRECT = (window.SPOTEUR_CONFIG?.postLoginRedirect || "index.html").trim() || "index.html";
+		const SPOTIFY_REDIRECT_URI = String(
+			window.WITHME_CONFIG?.spotifyRedirectUri
+			|| window.WITHME_CONFIG?.localRedirectUri
+			|| window.WITHME_CONFIG?.redirectUri
+			|| ""
+		).trim();
+		const REDIRECT_URI_IS_HTTPS = /^https:\/\//i.test(SPOTIFY_REDIRECT_URI);
+		const POST_LOGIN_REDIRECT = (window.WITHME_CONFIG?.postLoginRedirect || "index.html").trim() || "index.html";
 
 		const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 		const OAUTH_TEMP_AGE = 60 * 15;
+		let currentUser = null;
 
 		function setCookie(name, value, maxAgeSeconds) {
 			document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -138,13 +244,29 @@
 			return "";
 		}
 
-		function setStatus(message, isError = false) {
-			statusText.textContent = message;
-			statusText.style.color = isError ? "#ff9cab" : "#b9c7db";
-		}
-
 		function clearCookie(name) {
 			document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+		}
+
+		function setStatus(message, isError = false) {
+			statusText.textContent = message;
+			statusText.classList.toggle("error", Boolean(isError));
+		}
+
+		function refreshWithMeState() {
+			if (!currentUser) {
+				withMeState.textContent = "Compte WithMe non connecte.";
+				spotifyConnectBtn.disabled = true;
+				spotifyConnectBtn.textContent = "Lier mon compte Spotify";
+				return;
+			}
+
+			const spotifyState = currentUser.spotifyLinked ? "Spotify deja lie" : "Spotify non lie";
+			withMeState.textContent = `${currentUser.username} (${currentUser.email}) · ${spotifyState}`;
+			spotifyConnectBtn.disabled = false;
+			spotifyConnectBtn.textContent = currentUser.spotifyLinked
+				? "Resynchroniser Spotify"
+				: "Lier mon compte Spotify";
 		}
 
 		function randomString(length) {
@@ -186,13 +308,13 @@
 			const challenge = await createCodeChallenge(verifier);
 			const state = randomString(24);
 
-			sessionStorage.setItem("spoteur-code-verifier", verifier);
-			sessionStorage.setItem("spoteur-oauth-state", state);
-			setCookie("spoteur-code-verifier", verifier, OAUTH_TEMP_AGE);
-			setCookie("spoteur-oauth-state", state, OAUTH_TEMP_AGE);
+			sessionStorage.setItem("WithMe-code-verifier", verifier);
+			sessionStorage.setItem("WithMe-oauth-state", state);
+			setCookie("WithMe-code-verifier", verifier, OAUTH_TEMP_AGE);
+			setCookie("WithMe-oauth-state", state, OAUTH_TEMP_AGE);
 
 			const scope = encodeURIComponent(
-				"user-read-email user-read-private user-top-read user-read-recently-played user-read-currently-playing user-read-playback-state user-modify-playback-state"
+				"user-read-email user-read-private user-top-read user-read-recently-played user-read-currently-playing user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative"
 			);
 			const authUrl = "https://accounts.spotify.com/authorize"
 				+ `?response_type=code&client_id=${encodeURIComponent(clientId)}`
@@ -263,47 +385,95 @@
 			}
 
 			try {
-				setStatus("Connexion Spotify en cours...");
-				const expectedState = sessionStorage.getItem("spoteur-oauth-state") || getCookie("spoteur-oauth-state");
+				if (!currentUser) {
+					throw new Error("Connecte-toi d'abord avec ton compte WithMe.");
+				}
+
+				setStatus("Liaison Spotify en cours...");
+				const expectedState = sessionStorage.getItem("WithMe-oauth-state") || getCookie("WithMe-oauth-state");
 				if (!expectedState || expectedState !== state) {
 					throw new Error("Etat OAuth invalide, recommence la connexion.");
 				}
 
-				const verifier = sessionStorage.getItem("spoteur-code-verifier") || getCookie("spoteur-code-verifier");
-				const clientId = SPOTIFY_CLIENT_ID;
-				if (!verifier || !clientId || clientId === "REPLACE_WITH_YOUR_SPOTIFY_CLIENT_ID") {
+				const verifier = sessionStorage.getItem("WithMe-code-verifier") || getCookie("WithMe-code-verifier");
+				if (!verifier || !SPOTIFY_CLIENT_ID || SPOTIFY_CLIENT_ID === "REPLACE_WITH_YOUR_SPOTIFY_CLIENT_ID") {
 					throw new Error("Session de connexion expiree, reconnecte-toi.");
 				}
 
-				const tokenData = await exchangeCodeForToken(code, clientId, verifier);
+				const tokenData = await exchangeCodeForToken(code, SPOTIFY_CLIENT_ID, verifier);
 				const profile = await fetchSpotifyProfile(tokenData.access_token);
 				const displayName = profile.display_name || profile.id || "Utilisateur";
 
-				setCookie("spoteur-display-name", displayName, COOKIE_MAX_AGE);
+				setCookie("WithMe-display-name", displayName, COOKIE_MAX_AGE);
 				try {
-					localStorage.setItem("spoteur-display-name", displayName);
-					localStorage.setItem("spoteur-spotify-access-token", tokenData.access_token || "");
-					localStorage.setItem("spoteur-spotify-refresh-token", tokenData.refresh_token || "");
-					localStorage.setItem("spoteur-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
+					localStorage.setItem("WithMe-display-name", displayName);
+					localStorage.setItem("WithMe-spotify-access-token", tokenData.access_token || "");
+					localStorage.setItem("WithMe-spotify-refresh-token", tokenData.refresh_token || "");
+					localStorage.setItem("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
 				} catch (e) {}
-				sessionStorage.removeItem("spoteur-code-verifier");
-				sessionStorage.removeItem("spoteur-oauth-state");
-				clearCookie("spoteur-code-verifier");
-				clearCookie("spoteur-oauth-state");
 
-				history.replaceState({}, document.title, SPOTIFY_REDIRECT_URI);
-				setStatus(`Connecte: ${displayName}. Redirection vers l'accueil...`);
+				setCookie("WithMe-spotify-access-token", tokenData.access_token || "", COOKIE_MAX_AGE);
+				setCookie("WithMe-spotify-refresh-token", tokenData.refresh_token || "", COOKIE_MAX_AGE);
+				setCookie("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)), COOKIE_MAX_AGE);
+
+				const updatedUser = await window.WithMeAuth.linkSpotify(profile.id || "", displayName);
+				currentUser = updatedUser || currentUser;
+				refreshWithMeState();
+
+				sessionStorage.removeItem("WithMe-code-verifier");
+				sessionStorage.removeItem("WithMe-oauth-state");
+				clearCookie("WithMe-code-verifier");
+				clearCookie("WithMe-oauth-state");
+
+				history.replaceState({}, document.title, CURRENT_LOGIN_URI);
+				setStatus(`Compte Spotify lie: ${displayName}. Redirection vers l'accueil...`);
 
 				setTimeout(() => {
 					window.location.href = POST_LOGIN_REDIRECT;
 				}, 700);
 			} catch (err) {
-				setStatus(err.message || "Connexion Spotify impossible.", true);
+				setStatus(err.message || "Liaison Spotify impossible.", true);
 			}
 		}
 
-		spotifyLoginForm.addEventListener("submit", async (event) => {
+		registerForm.addEventListener("submit", async (event) => {
 			event.preventDefault();
+			try {
+				setStatus("Creation du compte WithMe...");
+				currentUser = await window.WithMeAuth.register(
+					registerUsername.value.trim(),
+					registerEmail.value.trim(),
+					registerPassword.value
+				);
+				refreshWithMeState();
+				setStatus("Compte WithMe cree. Tu peux maintenant lier Spotify.");
+			} catch (error) {
+				setStatus("Impossible de creer le compte (pseudo/email deja pris ou infos invalides).", true);
+			}
+		});
+
+		loginBtn.addEventListener("click", async () => {
+			try {
+				setStatus("Connexion au compte WithMe...");
+				currentUser = await window.WithMeAuth.login(loginEmail.value.trim(), loginPassword.value);
+				refreshWithMeState();
+				setStatus("Compte WithMe connecte. Tu peux lier Spotify.");
+			} catch (error) {
+				setStatus("Email ou mot de passe invalide.", true);
+			}
+		});
+
+		spotifyConnectBtn.addEventListener("click", async () => {
+			if (!currentUser) {
+				setStatus("Connecte-toi d'abord avec WithMe.", true);
+				return;
+			}
+
+			if (!REDIRECT_URI_IS_HTTPS) {
+				setStatus(`redirect_uri insecure. Utilise une URI HTTPS dans spotify-config.js: ${SPOTIFY_REDIRECT_URI}`, true);
+				return;
+			}
+
 			if (!SPOTIFY_CLIENT_ID || SPOTIFY_CLIENT_ID === "REPLACE_WITH_YOUR_SPOTIFY_CLIENT_ID") {
 				setStatus("Configure d'abord spotifyClientId dans spotify-config.js.", true);
 				return;
@@ -318,9 +488,37 @@
 			await startSpotifyLogin(SPOTIFY_CLIENT_ID);
 		});
 
-		redirectInfo.textContent = `Redirect URI Spotify utilisee: ${SPOTIFY_REDIRECT_URI}`;
+		(async () => {
+			const urlParams = new URLSearchParams(window.location.search);
+			const requestedStep = (urlParams.get("step") || "").trim();
+			const forceResync = (urlParams.get("resync") || "").trim() === "1";
 
-		handleSpotifyCallback();
+			redirectInfo.textContent = `Redirect URI Spotify utilisee: ${SPOTIFY_REDIRECT_URI}`;
+			if (!REDIRECT_URI_IS_HTTPS) {
+				setStatus(`redirect_uri insecure. Mets une URI HTTPS dans Spotify Dashboard: ${SPOTIFY_REDIRECT_URI}`, true);
+				spotifyConnectBtn.disabled = true;
+			}
+
+			try {
+				currentUser = await window.WithMeAuth.me();
+			} catch (e) {
+				currentUser = null;
+			}
+
+			refreshWithMeState();
+
+			if (requestedStep === "spotify") {
+				if (!currentUser) {
+					setStatus("Reconnecte-toi avec WithMe, puis clique sur Lier/Resynchroniser Spotify.", true);
+				} else if (forceResync && currentUser.spotifyLinked) {
+					setStatus("Session Spotify absente. Clique sur Resynchroniser Spotify pour restaurer la connexion.", true);
+				} else {
+					setStatus("Clique sur Lier/Resynchroniser Spotify pour terminer la synchronisation.");
+				}
+			}
+
+			handleSpotifyCallback();
+		})();
 	</script>
 </body>
 </html>

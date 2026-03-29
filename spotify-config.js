@@ -1,7 +1,9 @@
-window.SPOTEUR_CONFIG = {
+window.WITHME_CONFIG = {
 	spotifyClientId: "1418bd40adb94fc296ae25dbf93c7372",
-	redirectUri: "https://nosserb.github.io/WithMe/",
-	localRedirectUri: "http://127.0.0.1:5500/spoteur/index.html",
-	postLoginRedirect: "https://nosserb.github.io/WithMe/",
+	spotifyRedirectUri: "https://127.0.0.1:3443/login.html",
+	redirectUri: "https://127.0.0.1:3443/login.html",
+	localRedirectUri: "https://127.0.0.1:3443/login.html",
+	postLoginRedirect: "https://127.0.0.1:3443/index.html",
+	apiBaseUrl: "",
 	TicketmasterKey: "eD59GweBRt9SXEpsiPs87U6RJGHw0CL8"
 };

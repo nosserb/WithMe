@@ -1,0 +1,19 @@
+{
+  "name": "withme",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WithMe app with local account auth and Spotify linking",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:stop": "sh -c 'fuser -k 3000/tcp 3443/tcp 2>/dev/null || true'",
+    "dev:restart": "sh -c 'fuser -k 3000/tcp 3443/tcp 2>/dev/null || true; npm start'",
+    "dev:cert": "mkdir -p certs && openssl req -x509 -nodes -newkey rsa:2048 -keyout certs/localhost-key.pem -out certs/localhost-cert.pem -days 365 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'",
+    "dev:cert:trusted": "mkcert -install && mkdir -p certs && mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost-cert.pem localhost 127.0.0.1 ::1"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "sqlite3": "^5.1.7"
+  }
+}

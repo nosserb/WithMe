@@ -1,24 +1,55 @@
 (function () {
+	const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+	function setCookie(name, value, maxAgeSeconds = COOKIE_MAX_AGE) {
+		document.cookie = `${name}=${encodeURIComponent(value || "")}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+	}
+
+	function getCookie(name) {
+		const parts = document.cookie ? document.cookie.split("; ") : [];
+		for (const part of parts) {
+			const [key, ...rest] = part.split("=");
+			if (key === name) {
+				return decodeURIComponent(rest.join("="));
+			}
+		}
+		return "";
+	}
+
+	function clearCookie(name) {
+		document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+	}
+
 	function getStoredValue(key) {
 		try {
-			return localStorage.getItem(key) || "";
+			const fromStorage = localStorage.getItem(key) || "";
+			if (fromStorage) {
+				return fromStorage;
+			}
 		} catch (e) {
-			return "";
+			// Ignore and fallback to cookie.
 		}
+		return getCookie(key);
 	}
 
 	function setStoredValue(key, value) {
+		const normalized = String(value || "");
 		try {
-			localStorage.setItem(key, value);
+			localStorage.setItem(key, normalized);
 		} catch (e) {}
+		setCookie(key, normalized);
 	}
 
 	function clearSpotifyStoredAuth() {
 		try {
-			localStorage.removeItem("spoteur-spotify-access-token");
-			localStorage.removeItem("spoteur-spotify-refresh-token");
-			localStorage.removeItem("spoteur-spotify-expires-at");
+			localStorage.removeItem("WithMe-spotify-access-token");
+			localStorage.removeItem("WithMe-spotify-refresh-token");
+			localStorage.removeItem("WithMe-spotify-expires-at");
 		} catch (e) {}
+
+		clearCookie("WithMe-spotify-access-token");
+		clearCookie("WithMe-spotify-refresh-token");
+		clearCookie("WithMe-spotify-expires-at");
 	}
 
 	async function refreshSpotifyAccessToken(refreshToken, clientId) {
@@ -45,10 +76,10 @@
 		const data = await response.json();
 		const accessToken = data.access_token || "";
 		if (accessToken) {
-			setStoredValue("spoteur-spotify-access-token", accessToken);
-			setStoredValue("spoteur-spotify-expires-at", String(Date.now() + ((data.expires_in || 3600) * 1000)));
+			setStoredValue("WithMe-spotify-access-token", accessToken);
+			setStoredValue("WithMe-spotify-expires-at", String(Date.now() + ((data.expires_in || 3600) * 1000)));
 			if (data.refresh_token) {
-				setStoredValue("spoteur-spotify-refresh-token", data.refresh_token);
+				setStoredValue("WithMe-spotify-refresh-token", data.refresh_token);
 			}
 		}
 
@@ -56,9 +87,18 @@
 	}
 
 	async function getValidSpotifyToken(clientId) {
-		let accessToken = getStoredValue("spoteur-spotify-access-token");
-		const refreshToken = getStoredValue("spoteur-spotify-refresh-token");
-		const expiresAt = Number(getStoredValue("spoteur-spotify-expires-at") || "0");
+		let accessToken = getStoredValue("WithMe-spotify-access-token");
+		const refreshToken = getStoredValue("WithMe-spotify-refresh-token");
+		const expiresAt = Number(getStoredValue("WithMe-spotify-expires-at") || "0");
+
+		if (!accessToken && refreshToken) {
+			const refreshed = await refreshSpotifyAccessToken(refreshToken, clientId);
+			if (!refreshed) {
+				clearSpotifyStoredAuth();
+				return "";
+			}
+			accessToken = refreshed;
+		}
 
 		if (!accessToken) {
 			return "";
@@ -98,7 +138,7 @@
 		return response.json();
 	}
 
-	window.spoteurSpotify = {
+	window.WithMeSpotify = {
 		getStoredValue,
 		setStoredValue,
 		clearSpotifyStoredAuth,
