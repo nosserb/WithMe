@@ -1,10 +1,12 @@
+const WITHME_IS_GITHUB_PAGES = /(^|\.)github\.io$/i.test(window.location.hostname || "");
+
 window.WITHME_CONFIG = {
 	spotifyClientId: "1418bd40adb94fc296ae25dbf93c7372",
-	spotifyRedirectUri: "https://nosserb.github.io/WithMe/html/login.html",
-	redirectUri: "https://nosserb.github.io/WithMe/html/login.html",
-	localRedirectUri: "https://nosserb.github.io/WithMe/html/login.html",
-	postLoginRedirect: "https://127.0.0.1:3443/html/index.html",
-	apiBaseUrl: "",
+	spotifyRedirectUri: "https://nosserb.github.io/WithMe/login.html",
+	redirectUri: "https://nosserb.github.io/WithMe/login.html",
+	localRedirectUri: "https://nosserb.github.io/WithMe/login.html",
+	postLoginRedirect: "https://127.0.0.1:3443/index.html",
+	apiBaseUrl: WITHME_IS_GITHUB_PAGES ? "https://127.0.0.1:3443" : "",
 	TicketmasterKey: "eD59GweBRt9SXEpsiPs87U6RJGHw0CL8",
 	firebase: {
 		apiKey: "AIzaSyBQL4v0qvm-784ptWrnzz_lVeeeEhdqf3k",

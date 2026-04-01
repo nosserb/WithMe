@@ -19,6 +19,10 @@ const app = express();
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const CANONICAL_HOST = process.env.APP_HOST || "127.0.0.1";
+const ALLOWED_CORS_ORIGINS = new Set([
+  `https://${CANONICAL_HOST}:${HTTPS_PORT}`,
+  "https://nosserb.github.io"
+]);
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || path.join(__dirname, "certs", "localhost-key.pem");
 const TLS_CERT_PATH = process.env.TLS_CERT_PATH || path.join(__dirname, "certs", "localhost-cert.pem");
 const DB_PATH = path.join(__dirname, "database", "user.db");
@@ -687,6 +691,23 @@ app.use((req, res, next) => {
       + "upgrade-insecure-requests; "
       + "block-all-mixed-content"
   );
+  next();
+});
+
+app.use((req, res, next) => {
+  const origin = String(req.headers.origin || "").trim();
+  if (origin && ALLOWED_CORS_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  }
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
   next();
 });
 
@@ -2023,7 +2044,7 @@ app.use((req, res, next) => {
 app.use(express.static(__dirname));
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "html", "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 function createHttpsOptions() {

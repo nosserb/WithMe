@@ -822,7 +822,7 @@ function renderRecentConcerts(concerts) {
 
 		const chatLink = document.createElement("a");
 		chatLink.className = "detail-link";
-		chatLink.href = `/html/concert-chat.html?concertKey=${encodeURIComponent(concert.chatKey)}&artist=${encodeURIComponent(concert.artist)}`;
+		chatLink.href = `/concert-chat.html?concertKey=${encodeURIComponent(concert.chatKey)}&artist=${encodeURIComponent(concert.artist)}`;
 		chatLink.textContent = "Ouvrir le chat";
 		li.appendChild(chatLink);
 
@@ -890,7 +890,7 @@ function renderDmFriends(items) {
 		const item = document.createElement("li");
 		item.className = "dm-friend-item";
 		item.innerHTML = `
-			<a class="dm-friend-link" href="/html/direct-chat.html?userId=${encodeURIComponent(id)}&username=${encodeURIComponent(username)}">
+			<a class="dm-friend-link" href="/direct-chat.html?userId=${encodeURIComponent(id)}&username=${encodeURIComponent(username)}">
 				<img src="${avatarUrl}" alt="Avatar ${username}" />
 				<div>
 					<strong>${username}</strong>

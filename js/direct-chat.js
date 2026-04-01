@@ -600,7 +600,7 @@ dmChatForm.addEventListener("submit", async (event) => {
 		await refreshChat({ silent: false });
 	} catch (error) {
 		if (String(error?.message || "") === "auth_required") {
-			window.location.href = "/html/login.html";
+			window.location.href = "/login.html";
 			return;
 		}
 		if (String(error?.message || "") === "not_friends") {
@@ -640,7 +640,7 @@ dmChatMessages.addEventListener("click", async (event) => {
 		await refreshChat({ silent: false });
 	} catch (error) {
 		if (String(error?.message || "") === "auth_required") {
-			window.location.href = "/html/login.html";
+			window.location.href = "/login.html";
 			return;
 		}
 		setStatus("Impossible de supprimer ce message.", true);
@@ -669,7 +669,7 @@ if (themeToggle) {
 
 (async function bootDirectChatPage() {
 	initTheme();
-	const user = await window.WithMeAuth.requireAuthOrRedirect("/html/login.html");
+	const user = await window.WithMeAuth.requireAuthOrRedirect("/login.html");
 	if (!user) {
 		return;
 	}
@@ -696,7 +696,7 @@ if (themeToggle) {
 	} catch (error) {
 		const code = String(error?.message || "");
 		if (code === "auth_required") {
-			window.location.href = "/html/login.html";
+			window.location.href = "/login.html";
 			return;
 		}
 		if (code === "not_friends") {
