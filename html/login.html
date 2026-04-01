@@ -196,11 +196,11 @@
 
 		<p id="statusText" class="status" aria-live="polite"></p>
 		<p id="redirectInfo" class="status"></p>
-		<a class="back-link" href="/html/index.html">Retour au dashboard</a>
+		<a class="back-link" href="index.html">Retour au dashboard</a>
 	</section>
 
-	<script src="/js/spotify-config.js?v=20260328-httpsfix3"></script>
-	<script src="/js/auth-client.js?v=20260328"></script>
+	<script src="../js/spotify-config.js?v=20260328-httpsfix3"></script>
+	<script src="../js/auth-client.js?v=20260328"></script>
 	<script>
 		const registerForm = document.getElementById("registerForm");
 		const registerUsername = document.getElementById("registerUsername");
@@ -223,7 +223,7 @@
 			|| ""
 		).trim();
 		const REDIRECT_URI_IS_HTTPS = /^https:\/\//i.test(SPOTIFY_REDIRECT_URI);
-		const POST_LOGIN_REDIRECT = (window.WITHME_CONFIG?.postLoginRedirect || "/html/index.html").trim() || "/html/index.html";
+		const POST_LOGIN_REDIRECT = (window.WITHME_CONFIG?.postLoginRedirect || "index.html").trim() || "index.html";
 
 		const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 		const OAUTH_TEMP_AGE = 60 * 15;
