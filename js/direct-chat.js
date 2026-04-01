@@ -9,6 +9,14 @@ let activeTargetUserId = 0;
 let activeTargetUsername = "";
 let currentUserId = 0;
 let pollTimer = null;
+let e2eeSession = {
+	privateKey: null,
+	publicKey: null,
+	publicKeyJwkText: "",
+	targetPublicKey: null,
+	conversationKey: null,
+	ready: false
+};
 
 function getCookie(name) {
 	const parts = document.cookie ? document.cookie.split("; ") : [];
@@ -42,6 +50,364 @@ function initTheme() {
 function setStatus(message, isError = false) {
 	dmChatStatus.textContent = message;
 	dmChatStatus.style.color = isError ? "#d65050" : "var(--muted)";
+}
+
+function encodeUtf8(value) {
+	return new TextEncoder().encode(String(value || ""));
+}
+
+function decodeUtf8(value) {
+	return new TextDecoder().decode(value);
+}
+
+function getConversationWord() {
+	const left = Math.min(Number(currentUserId || 0), Number(activeTargetUserId || 0));
+	const right = Math.max(Number(currentUserId || 0), Number(activeTargetUserId || 0));
+	return `withme-dm-${left}-${right}`;
+}
+
+function applyCaesarByWord(input, word, direction) {
+	const text = String(input || "");
+	const keyword = String(word || "");
+	if (!text || !keyword) {
+		return text;
+	}
+
+	const printableStart = 32;
+	const printableEnd = 126;
+	const printableRange = printableEnd - printableStart + 1;
+	let keywordIndex = 0;
+	let output = "";
+
+	for (let i = 0; i < text.length; i += 1) {
+		const code = text.charCodeAt(i);
+		if (code < printableStart || code > printableEnd) {
+			output += text[i];
+			continue;
+		}
+
+		const keyCode = keyword.charCodeAt(keywordIndex % keyword.length);
+		const shift = keyCode % printableRange;
+		keywordIndex += 1;
+
+		const offset = code - printableStart;
+		const shifted = direction > 0
+			? (offset + shift) % printableRange
+			: (offset - shift + printableRange) % printableRange;
+
+		output += String.fromCharCode(printableStart + shifted);
+	}
+
+	return output;
+}
+
+function obfuscateWithConversationWord(plainText) {
+	return applyCaesarByWord(plainText, getConversationWord(), 1);
+}
+
+function deobfuscateWithConversationWord(obfuscatedText) {
+	return applyCaesarByWord(obfuscatedText, getConversationWord(), -1);
+}
+
+function bytesToBase64(bytes) {
+	let binary = "";
+	const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+	for (let i = 0; i < view.length; i += 1) {
+		binary += String.fromCharCode(view[i]);
+	}
+	return btoa(binary);
+}
+
+function base64ToBytes(base64Value) {
+	const normalized = String(base64Value || "").trim();
+	if (!normalized) {
+		throw new Error("invalid_base64");
+	}
+	const binary = atob(normalized);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i += 1) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
+}
+
+function getKeyPairStorageKey() {
+	return `withme:e2ee:keypair:v1:user:${currentUserId}`;
+}
+
+async function fetchJsonWithAuth(url, options = {}) {
+	const token = window.WithMeAuth?.getStoredToken?.() || "";
+	if (!token) {
+		throw new Error("auth_required");
+	}
+
+	const response = await fetch(url, {
+		...options,
+		headers: {
+			...(options.headers || {}),
+			Authorization: `Bearer ${token}`
+		}
+	});
+
+	if (response.status === 401) {
+		throw new Error("auth_required");
+	}
+
+	const payload = await response.json().catch(() => ({}));
+	if (!response.ok) {
+		throw new Error(payload?.error || "request_failed");
+	}
+
+	return payload;
+}
+
+async function loadOrCreateLocalIdentityKeys() {
+	if (!window.crypto?.subtle) {
+		throw new Error("crypto_not_supported");
+	}
+
+	const storageKey = getKeyPairStorageKey();
+	const stored = localStorage.getItem(storageKey);
+	if (stored) {
+		try {
+			const parsed = JSON.parse(stored);
+			const privateJwk = parsed?.privateJwk;
+			const publicJwk = parsed?.publicJwk;
+			const privateKey = await window.crypto.subtle.importKey(
+				"jwk",
+				privateJwk,
+				{ name: "RSA-OAEP", hash: "SHA-256" },
+				true,
+				["decrypt"]
+			);
+			const publicKey = await window.crypto.subtle.importKey(
+				"jwk",
+				publicJwk,
+				{ name: "RSA-OAEP", hash: "SHA-256" },
+				true,
+				["encrypt"]
+			);
+			return {
+				privateKey,
+				publicKey,
+				publicKeyJwkText: JSON.stringify(publicJwk)
+			};
+		} catch (error) {
+			localStorage.removeItem(storageKey);
+		}
+	}
+
+	const keyPair = await window.crypto.subtle.generateKey(
+		{
+			name: "RSA-OAEP",
+			hash: "SHA-256",
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1])
+		},
+		true,
+		["encrypt", "decrypt"]
+	);
+
+	const privateJwk = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+	const publicJwk = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+
+	localStorage.setItem(
+		storageKey,
+		JSON.stringify({ privateJwk, publicJwk })
+	);
+
+	return {
+		privateKey: keyPair.privateKey,
+		publicKey: keyPair.publicKey,
+		publicKeyJwkText: JSON.stringify(publicJwk)
+	};
+}
+
+async function publishMyPublicKey(publicKeyJwkText) {
+	const remoteKey = await fetchJsonWithAuth(`/api/e2ee/public-key/${encodeURIComponent(currentUserId)}`, {
+		method: "GET"
+	}).catch((error) => {
+		if (String(error?.message || "") === "public_key_not_found") {
+			return null;
+		}
+		throw error;
+	});
+
+	if (remoteKey?.publicKeyJwk === publicKeyJwkText) {
+		return;
+	}
+
+	await fetchJsonWithAuth("/api/e2ee/public-key", {
+		method: "PUT",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify({ publicKeyJwk: publicKeyJwkText })
+	});
+}
+
+async function loadTargetPublicKey() {
+	const payload = await fetchJsonWithAuth(`/api/e2ee/public-key/${encodeURIComponent(activeTargetUserId)}`, {
+		method: "GET"
+	});
+	const targetJwk = JSON.parse(String(payload?.publicKeyJwk || ""));
+	return window.crypto.subtle.importKey(
+		"jwk",
+		targetJwk,
+		{ name: "RSA-OAEP", hash: "SHA-256" },
+		true,
+		["encrypt"]
+	);
+}
+
+async function tryLoadExistingConversationKey() {
+	if (e2eeSession.conversationKey) {
+		return e2eeSession.conversationKey;
+	}
+
+	const payload = await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`, {
+		method: "GET"
+	});
+
+	if (!payload?.exists || !payload?.wrappedKey) {
+		return null;
+	}
+
+	const wrappedKeyBuffer = base64ToBytes(payload.wrappedKey);
+	e2eeSession.conversationKey = await window.crypto.subtle.unwrapKey(
+		"raw",
+		wrappedKeyBuffer,
+		e2eeSession.privateKey,
+		{ name: "RSA-OAEP" },
+		{ name: "AES-GCM", length: 256 },
+		false,
+		["encrypt", "decrypt"]
+	);
+
+	return e2eeSession.conversationKey;
+}
+
+async function ensureConversationKeyForSend() {
+	const existing = await tryLoadExistingConversationKey();
+	if (existing) {
+		return existing;
+	}
+
+	if (!e2eeSession.targetPublicKey) {
+		e2eeSession.targetPublicKey = await loadTargetPublicKey();
+	}
+
+	const aesKey = await window.crypto.subtle.generateKey(
+		{ name: "AES-GCM", length: 256 },
+		true,
+		["encrypt", "decrypt"]
+	);
+
+	const wrappedForSelf = await window.crypto.subtle.wrapKey(
+		"raw",
+		aesKey,
+		e2eeSession.publicKey,
+		{ name: "RSA-OAEP" }
+	);
+	const wrappedForPeer = await window.crypto.subtle.wrapKey(
+		"raw",
+		aesKey,
+		e2eeSession.targetPublicKey,
+		{ name: "RSA-OAEP" }
+	);
+
+	await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`, {
+		method: "PUT",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify({
+			wrappedKeyForSelf: bytesToBase64(new Uint8Array(wrappedForSelf)),
+			wrappedKeyForPeer: bytesToBase64(new Uint8Array(wrappedForPeer))
+		})
+	});
+
+	e2eeSession.conversationKey = aesKey;
+	return aesKey;
+}
+
+async function encryptPrivateMessage(plainText) {
+	const conversationKey = await ensureConversationKeyForSend();
+	const iv = window.crypto.getRandomValues(new Uint8Array(12));
+	const obfuscated = obfuscateWithConversationWord(plainText);
+	const encrypted = await window.crypto.subtle.encrypt(
+		{ name: "AES-GCM", iv },
+		conversationKey,
+		encodeUtf8(obfuscated)
+	);
+
+	return {
+		v: 2,
+		pre: "caesar-id-v1",
+		alg: "AES-GCM",
+		iv: bytesToBase64(iv),
+		ciphertext: bytesToBase64(new Uint8Array(encrypted))
+	};
+}
+
+async function decryptPrivateMessage(payload) {
+	if (!payload?.ciphertext || !payload?.iv) {
+		return null;
+	}
+
+	const conversationKey = await tryLoadExistingConversationKey();
+	if (!conversationKey) {
+		return null;
+	}
+
+	try {
+		const decrypted = await window.crypto.subtle.decrypt(
+			{ name: "AES-GCM", iv: base64ToBytes(payload.iv) },
+			conversationKey,
+			base64ToBytes(payload.ciphertext)
+		);
+		const clearText = decodeUtf8(new Uint8Array(decrypted));
+		if (String(payload?.pre || "") === "caesar-id-v1") {
+			return deobfuscateWithConversationWord(clearText);
+		}
+		return clearText;
+	} catch (error) {
+		return null;
+	}
+}
+
+async function initializeE2ee() {
+	const identity = await loadOrCreateLocalIdentityKeys();
+	e2eeSession.privateKey = identity.privateKey;
+	e2eeSession.publicKey = identity.publicKey;
+	e2eeSession.publicKeyJwkText = identity.publicKeyJwkText;
+
+	await publishMyPublicKey(identity.publicKeyJwkText);
+	e2eeSession.targetPublicKey = await loadTargetPublicKey();
+	await tryLoadExistingConversationKey();
+	e2eeSession.ready = true;
+}
+
+async function resolveDisplayMessages(items) {
+	if (!Array.isArray(items)) {
+		return [];
+	}
+
+	const resolved = [];
+	for (const item of items) {
+		if (item?.encrypted) {
+			const decrypted = await decryptPrivateMessage(item.encrypted);
+			resolved.push({
+				...item,
+				message: decrypted || "[Message chiffre - impossible a lire]"
+			});
+			continue;
+		}
+
+		resolved.push(item);
+	}
+
+	return resolved;
 }
 
 function getQueryParams() {
@@ -158,50 +524,21 @@ function renderMessages(items) {
 }
 
 async function fetchPrivateMessages() {
-	const token = window.WithMeAuth?.getStoredToken?.() || "";
-	if (!token) {
-		throw new Error("auth_required");
-	}
-
-	const response = await fetch(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages?limit=120`, {
-		headers: { Authorization: `Bearer ${token}` }
+	const payload = await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages?limit=120`, {
+		method: "GET"
 	});
-
-	if (response.status === 401) {
-		throw new Error("auth_required");
-	}
-
-	const payload = await response.json().catch(() => ({}));
-	if (!response.ok) {
-		throw new Error(payload?.error || "load_failed");
-	}
-
 	return payload?.items || [];
 }
 
 async function sendPrivateMessage(message) {
-	const token = window.WithMeAuth?.getStoredToken?.() || "";
-	if (!token) {
-		throw new Error("auth_required");
-	}
-
-	const response = await fetch(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages`, {
+	const encrypted = await encryptPrivateMessage(message);
+	await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages`, {
 		method: "POST",
 		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`
+			"Content-Type": "application/json"
 		},
-		body: JSON.stringify({ message })
+		body: JSON.stringify({ encrypted })
 	});
-
-	if (response.status === 401) {
-		throw new Error("auth_required");
-	}
-
-	const payload = await response.json().catch(() => ({}));
-	if (!response.ok) {
-		throw new Error(payload?.error || "send_failed");
-	}
 }
 
 async function deletePrivateMessage(messageId) {
@@ -238,12 +575,13 @@ async function deletePrivateMessage(messageId) {
 async function refreshChat(options = {}) {
 	const silent = Boolean(options.silent);
 	if (!silent) {
-		setStatus("Chargement des messages...");
+		setStatus("Chargement des messages chiffres...");
 	}
 	const items = await fetchPrivateMessages();
-	renderMessages(items);
+	const decryptedItems = await resolveDisplayMessages(items);
+	renderMessages(decryptedItems);
 	if (!silent) {
-		setStatus(`Discussion privee · ${items.length} message(s)`);
+		setStatus(`Discussion privee chiffree · ${decryptedItems.length} message(s)`);
 	}
 }
 
@@ -256,7 +594,7 @@ dmChatForm.addEventListener("submit", async (event) => {
 
 	try {
 		dmChatInput.disabled = true;
-		setStatus("Envoi du message...");
+		setStatus("Chiffrement et envoi du message...");
 		await sendPrivateMessage(message);
 		dmChatInput.value = "";
 		await refreshChat({ silent: false });
@@ -269,7 +607,11 @@ dmChatForm.addEventListener("submit", async (event) => {
 			setStatus("Tu peux ecrire uniquement a tes amis.", true);
 			return;
 		}
-		setStatus("Impossible d'envoyer le message.", true);
+		if (String(error?.message || "") === "public_key_not_found") {
+			setStatus("Ton ami n'a pas encore active le chiffrement E2E.", true);
+			return;
+		}
+		setStatus("Impossible d'envoyer le message chiffre.", true);
 	} finally {
 		dmChatInput.disabled = false;
 		dmChatInput.focus();
@@ -346,6 +688,9 @@ if (themeToggle) {
 	dmChatTitle.textContent = `Discussion avec ${activeTargetUsername}`;
 
 	try {
+		await initializeE2ee();
+		setStatus("Chiffrement de bout en bout actif.");
+
 		await refreshChat({ silent: false });
 		startPolling();
 	} catch (error) {
@@ -356,6 +701,16 @@ if (themeToggle) {
 		}
 		if (code === "not_friends") {
 			setStatus("Tu ne peux discuter qu'avec tes amis.", true);
+			dmChatForm.style.display = "none";
+			return;
+		}
+		if (code === "public_key_not_found") {
+			setStatus("Le chiffrement E2E n'est pas encore initialise pour cet ami.", true);
+			dmChatForm.style.display = "none";
+			return;
+		}
+		if (code === "crypto_not_supported") {
+			setStatus("Ton navigateur ne supporte pas le chiffrement E2E requis.", true);
 			dmChatForm.style.display = "none";
 			return;
 		}

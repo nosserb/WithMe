@@ -200,8 +200,8 @@ async function ensureDefaultConcertDiscussion(concertKey) {
 }
 
 async function ensureUserProfileColumns() {
-  const columns = await all(`SELECT column_name FROM information_schema.columns WHERE table_name='users' AND table_schema='public'`);
-  const columnNames = new Set(columns.map((col) => String(col.column_name || "")));
+  const columns = await all(`PRAGMA table_info(users)`);
+  const columnNames = new Set(columns.map((col) => String(col.name || "")));
 
   if (!columnNames.has("bio")) {
     await run(`ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''`);
@@ -287,6 +287,37 @@ async function initDb() {
   await run(`CREATE INDEX IF NOT EXISTS idx_friend_requests_sender ON friend_requests(sender_id, created_at)`);
   await run(`CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver ON friend_requests(receiver_id, created_at)`);
 
+  await run(`
+    CREATE TABLE IF NOT EXISTS e2ee_user_keys (
+      user_id INTEGER PRIMARY KEY,
+      public_key_jwk TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS e2ee_private_chat_keys (
+      id SERIAL PRIMARY KEY,
+      user_id_a INTEGER NOT NULL,
+      user_id_b INTEGER NOT NULL,
+      key_for_a TEXT NOT NULL,
+      key_for_b TEXT NOT NULL,
+      algorithm TEXT NOT NULL DEFAULT 'AES-GCM',
+      version INTEGER NOT NULL DEFAULT 1,
+      updated_by INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(user_id_a, user_id_b),
+      CHECK(user_id_a < user_id_b),
+      FOREIGN KEY(user_id_a) REFERENCES users(id),
+      FOREIGN KEY(user_id_b) REFERENCES users(id)
+    )
+  `);
+
+  await run(`CREATE INDEX IF NOT EXISTS idx_e2ee_private_chat_pair ON e2ee_private_chat_keys(user_id_a, user_id_b)`);
+
   await ensureUserProfileColumns();
 
   await cleanupExpiredSessions();
@@ -318,6 +349,117 @@ function normalizeFriendPair(userId1, userId2) {
   return first < second
     ? { a: first, b: second }
     : { a: second, b: first };
+}
+
+function parseStoredEncryptedMessage(rawMessage) {
+  const normalized = String(rawMessage || "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalized);
+    if (!parsed || parsed.e2ee !== 1) {
+      return null;
+    }
+
+    const version = Number(parsed.v || 0);
+    const algorithm = String(parsed.alg || "");
+    const iv = String(parsed.iv || "").trim();
+    const ciphertext = String(parsed.ct || "").trim();
+
+    if (version !== 1 || algorithm !== "AES-GCM") {
+      return null;
+    }
+    if (!iv || !ciphertext) {
+      return null;
+    }
+
+    return {
+      version,
+      algorithm,
+      iv,
+      ciphertext
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeBase64Input(value, fieldName, maxLength = 16384) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    throw new Error(`${fieldName}_required`);
+  }
+  if (normalized.length > maxLength) {
+    throw new Error(`${fieldName}_too_large`);
+  }
+  if (!/^[A-Za-z0-9+/=]+$/.test(normalized)) {
+    throw new Error(`${fieldName}_invalid`);
+  }
+  return normalized;
+}
+
+function normalizeEncryptedMessageInput(input) {
+  if (!input || typeof input !== "object") {
+    throw new Error("encrypted_payload_required");
+  }
+
+  const version = Number(input.v || input.version || 0);
+  const algorithm = String(input.alg || input.algorithm || "").trim();
+  const iv = normalizeBase64Input(input.iv, "iv", 2048);
+  const ciphertext = normalizeBase64Input(input.ciphertext || input.ct, "ciphertext", 24000);
+
+  if (version !== 1) {
+    throw new Error("unsupported_encryption_version");
+  }
+  if (algorithm !== "AES-GCM") {
+    throw new Error("unsupported_encryption_algorithm");
+  }
+
+  return {
+    v: 1,
+    alg: "AES-GCM",
+    iv,
+    ct: ciphertext
+  };
+}
+
+function serializeEncryptedMessagePayload(payload) {
+  return JSON.stringify({
+    e2ee: 1,
+    v: payload.v,
+    alg: payload.alg,
+    iv: payload.iv,
+    ct: payload.ct
+  });
+}
+
+function normalizePublicKeyJwkInput(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    throw new Error("public_key_required");
+  }
+  if (normalized.length > 24000) {
+    throw new Error("public_key_too_large");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch (error) {
+    throw new Error("invalid_public_key_json");
+  }
+
+  const kty = String(parsed?.kty || "");
+  const n = String(parsed?.n || "");
+  const e = String(parsed?.e || "");
+
+  if (kty !== "RSA" || !n || !e) {
+    throw new Error("invalid_public_key_jwk");
+  }
+
+  return normalized;
 }
 
 async function friendshipExists(userId1, userId2) {
@@ -1202,6 +1344,211 @@ app.delete("/api/friends/:id", authMiddleware, async (req, res) => {
   }
 });
 
+app.put("/api/e2ee/public-key", authMiddleware, async (req, res) => {
+  try {
+    const publicKeyJwk = normalizePublicKeyJwkInput(req.body?.publicKeyJwk);
+    const now = Date.now();
+
+    await run(
+      `
+        INSERT INTO e2ee_user_keys (user_id, public_key_jwk, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          public_key_jwk = excluded.public_key_jwk,
+          updated_at = excluded.updated_at
+      `,
+      [req.user.id, publicKeyJwk, now, now]
+    );
+
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    const code = String(error?.message || "");
+    if (
+      code === "public_key_required"
+      || code === "public_key_too_large"
+      || code === "invalid_public_key_json"
+      || code === "invalid_public_key_jwk"
+    ) {
+      res.status(400).json({ error: code });
+      return;
+    }
+
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+app.get("/api/e2ee/public-key/:userId", authMiddleware, async (req, res) => {
+  try {
+    const targetUserId = normalizeUserId(req.params.userId);
+    if (!targetUserId) {
+      res.status(400).json({ error: "invalid_user_id" });
+      return;
+    }
+
+    if (targetUserId !== req.user.id) {
+      const isFriend = await friendshipExists(req.user.id, targetUserId);
+      if (!isFriend) {
+        res.status(403).json({ error: "not_friends" });
+        return;
+      }
+    }
+
+    const keyRow = await get(
+      `SELECT public_key_jwk, updated_at FROM e2ee_user_keys WHERE user_id = ? LIMIT 1`,
+      [targetUserId]
+    );
+
+    if (!keyRow) {
+      res.status(404).json({ error: "public_key_not_found" });
+      return;
+    }
+
+    res.status(200).json({
+      userId: targetUserId,
+      publicKeyJwk: String(keyRow.public_key_jwk || ""),
+      updatedAt: Number(keyRow.updated_at || 0)
+    });
+  } catch (error) {
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+app.get("/api/private-chat/:userId/e2ee-key", authMiddleware, async (req, res) => {
+  try {
+    const targetUserId = normalizeUserId(req.params.userId);
+    if (!targetUserId) {
+      res.status(400).json({ error: "invalid_user_id" });
+      return;
+    }
+    if (targetUserId === req.user.id) {
+      res.status(400).json({ error: "invalid_chat_target" });
+      return;
+    }
+
+    const isFriend = await friendshipExists(req.user.id, targetUserId);
+    if (!isFriend) {
+      res.status(403).json({ error: "not_friends" });
+      return;
+    }
+
+    const pair = normalizeFriendPair(req.user.id, targetUserId);
+    if (!pair) {
+      res.status(400).json({ error: "invalid_friend_pair" });
+      return;
+    }
+
+    const row = await get(
+      `
+        SELECT key_for_a, key_for_b, algorithm, version, updated_at
+        FROM e2ee_private_chat_keys
+        WHERE user_id_a = ? AND user_id_b = ?
+        LIMIT 1
+      `,
+      [pair.a, pair.b]
+    );
+
+    if (!row) {
+      res.status(200).json({ exists: false });
+      return;
+    }
+
+    const wrappedKey = req.user.id === pair.a
+      ? String(row.key_for_a || "")
+      : String(row.key_for_b || "");
+
+    if (!wrappedKey) {
+      res.status(200).json({ exists: false });
+      return;
+    }
+
+    res.status(200).json({
+      exists: true,
+      wrappedKey,
+      algorithm: String(row.algorithm || "AES-GCM"),
+      version: Number(row.version || 1),
+      updatedAt: Number(row.updated_at || 0)
+    });
+  } catch (error) {
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+app.put("/api/private-chat/:userId/e2ee-key", authMiddleware, async (req, res) => {
+  try {
+    const targetUserId = normalizeUserId(req.params.userId);
+    if (!targetUserId) {
+      res.status(400).json({ error: "invalid_user_id" });
+      return;
+    }
+    if (targetUserId === req.user.id) {
+      res.status(400).json({ error: "invalid_chat_target" });
+      return;
+    }
+
+    const isFriend = await friendshipExists(req.user.id, targetUserId);
+    if (!isFriend) {
+      res.status(403).json({ error: "not_friends" });
+      return;
+    }
+
+    const pair = normalizeFriendPair(req.user.id, targetUserId);
+    if (!pair) {
+      res.status(400).json({ error: "invalid_friend_pair" });
+      return;
+    }
+
+    const wrappedKeyForSelf = normalizeBase64Input(req.body?.wrappedKeyForSelf, "wrapped_key_for_self", 24000);
+    const wrappedKeyForPeer = normalizeBase64Input(req.body?.wrappedKeyForPeer, "wrapped_key_for_peer", 24000);
+
+    const requesterIsA = req.user.id === pair.a;
+    const keyForA = requesterIsA ? wrappedKeyForSelf : wrappedKeyForPeer;
+    const keyForB = requesterIsA ? wrappedKeyForPeer : wrappedKeyForSelf;
+    const now = Date.now();
+
+    await run(
+      `
+        INSERT INTO e2ee_private_chat_keys (
+          user_id_a,
+          user_id_b,
+          key_for_a,
+          key_for_b,
+          algorithm,
+          version,
+          updated_by,
+          created_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?, 'AES-GCM', 1, ?, ?, ?)
+        ON CONFLICT(user_id_a, user_id_b) DO UPDATE SET
+          key_for_a = excluded.key_for_a,
+          key_for_b = excluded.key_for_b,
+          algorithm = excluded.algorithm,
+          version = excluded.version,
+          updated_by = excluded.updated_by,
+          updated_at = excluded.updated_at
+      `,
+      [pair.a, pair.b, keyForA, keyForB, req.user.id, now, now]
+    );
+
+    res.status(200).json({ ok: true, version: 1, algorithm: "AES-GCM" });
+  } catch (error) {
+    const code = String(error?.message || "");
+    if (
+      code === "wrapped_key_for_self_required"
+      || code === "wrapped_key_for_self_too_large"
+      || code === "wrapped_key_for_self_invalid"
+      || code === "wrapped_key_for_peer_required"
+      || code === "wrapped_key_for_peer_too_large"
+      || code === "wrapped_key_for_peer_invalid"
+    ) {
+      res.status(400).json({ error: code });
+      return;
+    }
+
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
 app.get("/api/private-chat/:userId/messages", authMiddleware, async (req, res) => {
   try {
     const targetUserId = normalizeUserId(req.params.userId);
@@ -1278,13 +1625,22 @@ app.get("/api/private-chat/:userId/messages", authMiddleware, async (req, res) =
 
     res.status(200).json({
       items: rows.map((row) => {
+        const encryptedPayload = parseStoredEncryptedMessage(row.message);
         const senderInfo = senderMap.get(Number(row.sender_id || 0)) || { username: "Utilisateur", avatarUrl: "" };
         return {
           id: row.id,
           senderId: row.sender_id,
           senderUsername: senderInfo.username,
           senderAvatarUrl: senderInfo.avatarUrl,
-          message: row.message || "",
+          message: encryptedPayload ? "" : (row.message || ""),
+          encrypted: encryptedPayload
+            ? {
+                v: encryptedPayload.version,
+                alg: encryptedPayload.algorithm,
+                iv: encryptedPayload.iv,
+                ciphertext: encryptedPayload.ciphertext
+              }
+            : null,
           createdAt: Number(row.created_at || 0)
         };
       })
@@ -1324,32 +1680,71 @@ app.post("/api/private-chat/:userId/messages", authMiddleware, async (req, res) 
       return;
     }
 
-    const message = String(req.body?.message || "").trim();
-    if (!message) {
-      res.status(400).json({ error: "message_required" });
-      return;
+    let storedMessagePayload = "";
+    let responseMessage = "";
+    let responseEncrypted = null;
+
+    if (req.body?.encrypted) {
+      const encryptedInput = normalizeEncryptedMessageInput(req.body.encrypted);
+      storedMessagePayload = serializeEncryptedMessagePayload(encryptedInput);
+      responseEncrypted = {
+        v: encryptedInput.v,
+        alg: encryptedInput.alg,
+        iv: encryptedInput.iv,
+        ciphertext: encryptedInput.ct
+      };
+    } else {
+      const legacyMessage = String(req.body?.message || "").trim();
+      if (!legacyMessage) {
+        res.status(400).json({ error: "encrypted_payload_required" });
+        return;
+      }
+      if (legacyMessage.length > 500) {
+        res.status(400).json({ error: "message_too_long" });
+        return;
+      }
+      storedMessagePayload = legacyMessage;
+      responseMessage = legacyMessage;
     }
-    if (message.length > 500) {
-      res.status(400).json({ error: "message_too_long" });
+
+    if (storedMessagePayload.length > 24000) {
+      res.status(400).json({ error: "message_too_large" });
       return;
     }
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO private_messages (user_id_a, user_id_b, sender_id, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [pair.a, pair.b, req.user.id, message, now]
+    const insertResult = await run(
+      `INSERT INTO private_messages (user_id_a, user_id_b, sender_id, message, created_at) VALUES (?, ?, ?, ?, ?)`,
+      [pair.a, pair.b, req.user.id, storedMessagePayload, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         senderId: req.user.id,
         senderUsername: req.user.username || "Utilisateur",
-        message,
+        message: responseMessage,
+        encrypted: responseEncrypted,
         createdAt: now
       }
     });
   } catch (error) {
+    const code = String(error?.message || "");
+    if (
+      code === "encrypted_payload_required"
+      || code === "iv_required"
+      || code === "iv_too_large"
+      || code === "iv_invalid"
+      || code === "ciphertext_required"
+      || code === "ciphertext_too_large"
+      || code === "ciphertext_invalid"
+      || code === "unsupported_encryption_version"
+      || code === "unsupported_encryption_algorithm"
+    ) {
+      res.status(400).json({ error: code });
+      return;
+    }
+
     res.status(500).json({ error: "server_error" });
   }
 });
@@ -1409,8 +1804,8 @@ app.delete("/api/private-chat/:userId/messages/:messageId", authMiddleware, asyn
       return;
     }
 
-    const result = await run(`DELETE FROM private_messages WHERE id = $1`, [messageId]);
-    if (Number(result.rowCount || 0) <= 0) {
+    const result = await run(`DELETE FROM private_messages WHERE id = ?`, [messageId]);
+    if (Number(result.changes || 0) <= 0) {
       res.status(404).json({ error: "message_not_found" });
       return;
     }
