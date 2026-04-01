@@ -6,7 +6,11 @@
 		}
 
 		authBtn.textContent = "Connexion";
-		authBtn.setAttribute("href", "/login.html");
+		authBtn.setAttribute("href", window.WithMeAuth.getLoginUrl());
+
+		if (!window.WithMeAuth.getStoredToken()) {
+			return;
+		}
 
 		let user = null;
 		try {
@@ -28,7 +32,7 @@
 			try {
 				await window.WithMeAuth.logout();
 			} finally {
-				window.location.href = "/login.html";
+				window.WithMeAuth.redirectToLogin();
 			}
 		});
 	}

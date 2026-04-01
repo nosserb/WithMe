@@ -339,7 +339,7 @@ async function handleRequestAction(action, userId, triggerBtn) {
 
 async function loadProfile() {
 	try {
-		const user = await window.WithMeAuth.requireAuthOrRedirect("/login.html");
+		const user = await window.WithMeAuth.requireAuthOrRedirect(window.WithMeAuth.getLoginUrl());
 		if (!user) {
 			return;
 		}

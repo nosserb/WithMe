@@ -278,7 +278,7 @@ chatForm.addEventListener("submit", async (event) => {
 		await refreshChat({ silent: false });
 	} catch (error) {
 		if (String(error?.message || "") === "auth_required") {
-			window.location.href = "/login.html";
+			window.WithMeAuth.redirectToLogin();
 			return;
 		}
 		const detail = String(error?.message || "").replace(/^send_failed:/, "");
@@ -300,7 +300,7 @@ if (themeToggle) {
 
 (async function bootConcertChatPage() {
 	initTheme();
-	const user = await window.WithMeAuth.requireAuthOrRedirect("/login.html");
+	const user = await window.WithMeAuth.requireAuthOrRedirect(window.WithMeAuth.getLoginUrl());
 	if (!user) {
 		return;
 	}
@@ -322,7 +322,7 @@ if (themeToggle) {
 		startPolling();
 	} catch (error) {
 		if (String(error?.message || "") === "auth_required") {
-			window.location.href = "/login.html";
+			window.WithMeAuth.redirectToLogin();
 			return;
 		}
 		const detail = String(error?.message || "").replace(/^load_failed:/, "");

@@ -382,7 +382,7 @@ async function handleSearchError(error) {
 	if (String(error?.message || "") === "withme_unauthorized") {
 		setStatus("Session WithMe expiree. Reconnecte-toi.", true);
 		searchSession = null;
-		window.location.href = "/login.html";
+		window.WithMeAuth.redirectToLogin();
 		return;
 	}
 

@@ -665,6 +665,42 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
 
+async function syncUsersToFirestore() {
+  if (!hasFirestoreConfig()) {
+    return false;
+  }
+
+  try {
+    const userRows = await all(
+      `
+        SELECT
+          id,
+          username,
+          email,
+          bio,
+          spotify_id,
+          spotify_display_name,
+          created_at,
+          updated_at
+        FROM users
+      `
+    );
+
+    await mirrorSqliteTables([
+      {
+        collection: "users",
+        idField: "id",
+        rows: userRows
+      }
+    ]);
+
+    return true;
+  } catch (error) {
+    console.error("Firestore users sync failed", error);
+    return false;
+  }
+}
+
 app.use(express.json({ limit: "1mb" }));
 
 app.use((req, res, next) => {
@@ -750,6 +786,8 @@ app.post("/api/auth/register", async (req, res) => {
       [userId]
     );
 
+    void syncUsersToFirestore();
+
     res.status(201).json({ token: session.token, expiresAt: session.expiresAt, user: sanitizeUser(userRow, { includeImages: false }) });
   } catch (error) {
     res.status(500).json({ error: "server_error" });
@@ -822,6 +860,8 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
       `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = $1`,
       [req.user.id]
     );
+
+    void syncUsersToFirestore();
 
     res.status(200).json({ user: sanitizeUser(updatedUser, { includeImages: false }) });
   } catch (error) {
@@ -918,6 +958,8 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
       `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
       [req.user.id]
     );
+
+    void syncUsersToFirestore();
 
     res.status(200).json({ user: sanitizeUser(updatedUser) });
   } catch (error) {

@@ -101,6 +101,39 @@
 		return Boolean(stored.accessToken || stored.refreshToken);
 	}
 
+	function getLoginUrl() {
+		const configured = String(
+			window.WITHME_CONFIG?.spotifyRedirectUri
+			|| window.WITHME_CONFIG?.redirectUri
+			|| ""
+		).trim();
+
+		if (/^https?:\/\//i.test(configured)) {
+			return configured;
+		}
+
+		if (configured.startsWith("/")) {
+			return `${window.location.origin}${configured}`;
+		}
+
+		if (configured) {
+			return new URL(configured, window.location.href).href;
+		}
+
+		return new URL("login.html", window.location.href).href;
+	}
+
+	function redirectToLogin(query = "") {
+		const loginUrl = new URL(getLoginUrl(), window.location.href);
+		const normalizedQuery = String(query || "").trim().replace(/^\?/, "");
+		if (normalizedQuery) {
+			for (const [key, value] of new URLSearchParams(normalizedQuery).entries()) {
+				loginUrl.searchParams.set(key, value);
+			}
+		}
+		window.location.href = loginUrl.toString();
+	}
+
 	async function apiRequest(path, options = {}) {
 		const token = getStoredToken();
 		const headers = {
@@ -109,11 +142,18 @@
 			...(token ? { Authorization: `Bearer ${token}` } : {})
 		};
 
-		const response = await fetch(apiUrl(path), {
-			method: options.method || "GET",
-			headers,
-			body: options.body ? JSON.stringify(options.body) : undefined
-		});
+		let response;
+		try {
+			response = await fetch(apiUrl(path), {
+				method: options.method || "GET",
+				headers,
+				body: options.body ? JSON.stringify(options.body) : undefined
+			});
+		} catch (e) {
+			const error = new Error("backend_unreachable");
+			error.status = 0;
+			throw error;
+		}
 
 		let payload = {};
 		try {
@@ -153,6 +193,9 @@
 	}
 
 	async function me() {
+		if (!getStoredToken()) {
+			return getStoredUser();
+		}
 		const payload = await apiRequest("/api/auth/me", { method: "GET" });
 		if (payload.user) {
 			setStoredUser(payload.user);
@@ -246,7 +289,7 @@
 		return payload || { ok: false, removed: false };
 	}
 
-	async function requireAuthOrRedirect(redirectTo = "/login.html") {
+	async function requireAuthOrRedirect(redirectTo = getLoginUrl()) {
 		const token = getStoredToken();
 		if (!token) {
 			window.location.href = redirectTo;
@@ -271,6 +314,8 @@
 	window.WithMeAuth = {
 		getStoredToken,
 		getStoredUser,
+		getLoginUrl,
+		redirectToLogin,
 		setStoredSession,
 		setStoredUser,
 		clearStoredSession,
