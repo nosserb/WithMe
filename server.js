@@ -3,9 +3,17 @@ const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
+require("dotenv").config();
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3").verbose();
+const {
+  hasFirestoreConfig,
+  getFirestoreConfigError,
+  pingFirestore,
+  mirrorSqliteTables,
+  fetchFirestoreTables
+} = require("./database/firestore");
 
 const app = express();
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
@@ -13,14 +21,144 @@ const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const CANONICAL_HOST = process.env.APP_HOST || "127.0.0.1";
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || path.join(__dirname, "certs", "localhost-key.pem");
 const TLS_CERT_PATH = process.env.TLS_CERT_PATH || path.join(__dirname, "certs", "localhost-cert.pem");
-const DB_PATH = path.join(__dirname, "database", "user.db");
-const CHAT_DB_PATH = path.join(__dirname, "database", "chatConcert.db");
-const PRIVATE_MESSAGE_DB_PATH = path.join(__dirname, "database", "PrivateMessage.db");
+const DB_PATH = ":memory:";
+const CHAT_DB_PATH = ":memory:";
+const PRIVATE_MESSAGE_DB_PATH = ":memory:";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 const db = new sqlite3.Database(DB_PATH);
 const chatDb = new sqlite3.Database(CHAT_DB_PATH);
 const privateMessageDb = new sqlite3.Database(PRIVATE_MESSAGE_DB_PATH);
+
+let firestoreSyncTimer = null;
+let firestoreSyncRunning = false;
+let firestoreSyncQueued = false;
+let isDatabaseReady = false;
+
+async function syncSqliteDataToFirestoreNow() {
+  if (!hasFirestoreConfig()) {
+    return;
+  }
+
+  const [users, sessions, friendships, friendRequests, concertMessages, privateMessages] = await Promise.all([
+    all(`SELECT * FROM users`),
+    all(`SELECT * FROM sessions`),
+    all(`SELECT * FROM friendships`),
+    all(`SELECT * FROM friend_requests`),
+    chatAll(`SELECT * FROM concert_messages`),
+    privateMessageAll(`SELECT * FROM private_messages`)
+  ]);
+
+  await mirrorSqliteTables([
+    { collection: "users", rows: users, idField: "id" },
+    { collection: "sessions", rows: sessions, idField: "id" },
+    { collection: "friendships", rows: friendships, idField: "id" },
+    { collection: "friend_requests", rows: friendRequests, idField: "id" },
+    { collection: "concert_messages", rows: concertMessages, idField: "id" },
+    { collection: "private_messages", rows: privateMessages, idField: "id" }
+  ]);
+}
+
+async function runFirestoreSyncJob() {
+  if (firestoreSyncRunning) {
+    firestoreSyncQueued = true;
+    return;
+  }
+
+  firestoreSyncRunning = true;
+  try {
+    await syncSqliteDataToFirestoreNow();
+  } catch (error) {
+    console.error("Firestore sync failed", error);
+  } finally {
+    firestoreSyncRunning = false;
+    if (firestoreSyncQueued) {
+      firestoreSyncQueued = false;
+      scheduleFirestoreSync(300);
+    }
+  }
+}
+
+function scheduleFirestoreSync(delayMs = 1200) {
+  if (!isDatabaseReady || !hasFirestoreConfig()) {
+    return;
+  }
+
+  if (firestoreSyncTimer) {
+    clearTimeout(firestoreSyncTimer);
+  }
+
+  firestoreSyncTimer = setTimeout(() => {
+    firestoreSyncTimer = null;
+    runFirestoreSyncJob().catch((error) => {
+      console.error("Unexpected Firestore sync error", error);
+    });
+  }, Math.max(50, Number(delayMs) || 1200));
+}
+
+function deserializeFirestoreRow(row = {}) {
+  const output = {};
+  const source = row && typeof row === "object" ? row : {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (key === "_syncedAt" || key.endsWith("_encoding")) {
+      continue;
+    }
+
+    const encoding = source[`${key}_encoding`];
+    if (encoding === "base64" && typeof value === "string") {
+      output[key] = Buffer.from(value, "base64");
+      continue;
+    }
+
+    output[key] = value;
+  }
+
+  return output;
+}
+
+async function loadTableRows(tableName, readAllFn, writeRunFn, rows) {
+  const normalizedRows = Array.isArray(rows) ? rows.map(deserializeFirestoreRow) : [];
+  const schemaRows = await readAllFn(`PRAGMA table_info(${tableName})`);
+  const allowedColumns = new Set((schemaRows || []).map((col) => String(col.name || "")));
+
+  await writeRunFn(`DELETE FROM ${tableName}`);
+
+  for (const row of normalizedRows) {
+    const keys = Object.keys(row).filter((key) => allowedColumns.has(key));
+    if (!keys.length) {
+      continue;
+    }
+
+    const placeholders = keys.map(() => "?").join(", ");
+    await writeRunFn(
+      `INSERT INTO ${tableName} (${keys.join(", ")}) VALUES (${placeholders})`,
+      keys.map((key) => row[key])
+    );
+  }
+}
+
+async function hydrateSqliteFromFirestore() {
+  if (!hasFirestoreConfig()) {
+    return;
+  }
+
+  const tables = await fetchFirestoreTables([
+    { collection: "users" },
+    { collection: "sessions" },
+    { collection: "friendships" },
+    { collection: "friend_requests" },
+    { collection: "concert_messages" },
+    { collection: "private_messages" }
+  ]);
+
+  await loadTableRows("users", all, run, tables.users || []);
+  await loadTableRows("sessions", all, run, tables.sessions || []);
+  await loadTableRows("friendships", all, run, tables.friendships || []);
+  await loadTableRows("friend_requests", all, run, tables.friend_requests || []);
+  await loadTableRows("concert_messages", chatAll, chatRun, tables.concert_messages || []);
+  await loadTableRows("private_messages", privateMessageAll, privateMessageRun, tables.private_messages || []);
+}
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -29,6 +167,7 @@ function run(sql, params = []) {
         reject(err);
         return;
       }
+      scheduleFirestoreSync();
       resolve(this);
     });
   });
@@ -65,6 +204,7 @@ function chatRun(sql, params = []) {
         reject(err);
         return;
       }
+      scheduleFirestoreSync();
       resolve(this);
     });
   });
@@ -101,6 +241,7 @@ function privateMessageRun(sql, params = []) {
         reject(err);
         return;
       }
+      scheduleFirestoreSync();
       resolve(this);
     });
   });
@@ -1582,6 +1723,43 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
+app.get("/api/health/firestore", async (req, res) => {
+  try {
+    if (!hasFirestoreConfig()) {
+      const configError = getFirestoreConfigError();
+      res.status(503).json({
+        ok: false,
+        error: "firestore_not_configured",
+        details: configError || "missing_credentials_or_project_id"
+      });
+      return;
+    }
+
+    await pingFirestore();
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    res.status(503).json({ ok: false, error: "firestore_unreachable" });
+  }
+});
+
+app.use((req, res, next) => {
+  const blockedPathPatterns = [
+    /^\/\.env(?:\.|$)/i,
+    /^\/certs(?:\/|$)/i,
+    /^\/database(?:\/|$)/i,
+    /^\/server\.js$/i,
+    /^\/package(?:-lock)?\.json$/i,
+    /^\/.*service-account.*\.json$/i,
+  ];
+
+  if (blockedPathPatterns.some((pattern) => pattern.test(req.path || ""))) {
+    res.status(404).end();
+    return;
+  }
+
+  next();
+});
+
 app.use(express.static(__dirname));
 
 app.get("*", (req, res) => {
@@ -1614,7 +1792,10 @@ function startHttpRedirectServer() {
 }
 
 Promise.all([initDb(), initConcertChatDb(), initPrivateMessageDb()])
-  .then(() => {
+  .then(async () => {
+    await hydrateSqliteFromFirestore();
+    isDatabaseReady = true;
+    await syncSqliteDataToFirestoreNow();
     const httpsOptions = createHttpsOptions();
 
     https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
