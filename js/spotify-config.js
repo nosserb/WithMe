@@ -20,6 +20,12 @@ window.WITHME_CONFIG = {
 };
 
 (function initFirebaseWebSdk() {
+	// Skip Firebase entirely on GitHub Pages - it interferes with the app
+	if (WITHME_IS_GITHUB_PAGES) {
+		window.WithMeFirebase = { isReady: true, isDisabled: true };
+		return;
+	}
+
 	const firebaseConfig = window.WITHME_CONFIG?.firebase;
 	if (!firebaseConfig || !firebaseConfig.apiKey) {
 		return;
