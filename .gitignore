@@ -1,3 +1,9 @@
 node_modules/
 certs/
 database/*.db
+.env
+.env.*
+!.env.example
+*service-account*.json
+*firebase-adminsdk*.json
+withme-aa73b-firebase-adminsdk-*.json
