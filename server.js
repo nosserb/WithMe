@@ -187,16 +187,15 @@ function normalizeConcertKey(rawValue) {
 
 async function ensureDefaultConcertDiscussion(concertKey) {
   const existing = await get(
-    `SELECT id FROM concert_messages WHERE concert_key = $1 LIMIT 1`,
+    `SELECT id FROM concert_messages WHERE concert_key = ? LIMIT 1`,
     [concertKey]
   );
-  await run(
-  async function run(sql, params = []) {
-    return await pool.query(sql, params);
+  if (!existing) {
+    await chatRun(
+      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
+      [concertKey, null, "WithMe", "Discussion de concert", Date.now()]
+    );
   }
-    `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [concertKey, null, "WithMe", "Discussion de concert", Date.now()]
-  );
 }
 
 async function ensureUserProfileColumns() {
@@ -710,7 +709,7 @@ app.post("/api/auth/register", async (req, res) => {
       return;
     }
 
-    const existing = await get(`SELECT id FROM users WHERE username = $1 OR email = $2`, [username, email]);
+    const existing = await get(`SELECT id FROM users WHERE username = ? OR email = ?`, [username, email]);
     if (existing) {
       res.status(409).json({ error: "account_already_exists" });
       return;
@@ -718,15 +717,15 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await run(
+      `INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
       [username, email, passwordHash, now, now]
     );
 
-    const userId = Number(insertResult.rows[0]?.id);
+    const userId = Number(insertResult.lastID);
     const session = await createSession(userId);
     const userRow = await get(
-      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [userId]
     );
 
@@ -747,7 +746,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const userRow = await get(
-      `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = $1`,
+      `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = ?`,
       [email]
     );
 
@@ -775,7 +774,7 @@ app.get("/api/auth/me", authMiddleware, async (req, res) => {
 
 app.post("/api/auth/logout", authMiddleware, async (req, res) => {
   try {
-    await run(`DELETE FROM sessions WHERE token = $1`, [req.authToken]);
+    await run(`DELETE FROM sessions WHERE token = ?`, [req.authToken]);
     res.status(200).json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: "server_error" });
@@ -794,7 +793,7 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
 
     const now = Date.now();
     await run(
-      `UPDATE users SET spotify_id = $1, spotify_display_name = $2, updated_at = $3 WHERE id = $4`,
+      `UPDATE users SET spotify_id = ?, spotify_display_name = ?, updated_at = ? WHERE id = ?`,
       [spotifyId, spotifyDisplayName, now, req.user.id]
     );
 
@@ -1119,14 +1118,14 @@ app.post("/api/friends/:id", authMiddleware, async (req, res) => {
       return;
     }
 
-    const insertResult = await pool.query(
-      `INSERT INTO friend_requests (sender_id, receiver_id, created_at) VALUES ($1, $2, $3) RETURNING id`,
+    const insertResult = await run(
+      `INSERT INTO friend_requests (sender_id, receiver_id, created_at) VALUES (?, ?, ?)`,
       [req.user.id, targetUserId, Date.now()]
     );
 
     res.status(200).json({
       ok: true,
-      requestSent: Number(insertResult.rowCount || 0) > 0,
+      requestSent: Boolean(insertResult.changes),
       alreadyFriend: false
     });
   } catch (error) {
@@ -1874,14 +1873,14 @@ app.post("/api/concert-chat/:concertKey/messages", authMiddleware, async (req, r
     await ensureDefaultConcertDiscussion(concertKey);
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await chatRun(
+      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
       [concertKey, req.user.id, req.user.username || "Utilisateur", message, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         concertKey,
         userId: req.user.id,
         username: req.user.username || "Utilisateur",
@@ -1956,14 +1955,14 @@ app.post("/api/concert-chat/messages", authMiddleware, async (req, res) => {
     await ensureDefaultConcertDiscussion(concertKey);
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await chatRun(
+      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
       [concertKey, req.user.id, req.user.username || "Utilisateur", message, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         concertKey,
         userId: req.user.id,
         username: req.user.username || "Utilisateur",
