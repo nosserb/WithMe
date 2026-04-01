@@ -3,17 +3,9 @@ const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
-require("dotenv").config();
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3").verbose();
-const {
-  hasFirestoreConfig,
-  getFirestoreConfigError,
-  pingFirestore,
-  mirrorSqliteTables,
-  fetchFirestoreTables
-} = require("./database/firestore");
 
 const app = express();
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
@@ -139,9 +131,9 @@ function privateMessageAll(sql, params = []) {
 }
 
 async function initConcertChatDb() {
-  await run(`
+  await chatRun(`
     CREATE TABLE IF NOT EXISTS concert_messages (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       concert_key TEXT NOT NULL,
       user_id INTEGER,
       username TEXT NOT NULL,
@@ -150,14 +142,14 @@ async function initConcertChatDb() {
     )
   `);
 
-  await run(`CREATE INDEX IF NOT EXISTS idx_concert_messages_key ON concert_messages(concert_key)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_concert_messages_created ON concert_messages(created_at)`);
+  await chatRun(`CREATE INDEX IF NOT EXISTS idx_concert_messages_key ON concert_messages(concert_key)`);
+  await chatRun(`CREATE INDEX IF NOT EXISTS idx_concert_messages_created ON concert_messages(created_at)`);
 }
 
 async function initPrivateMessageDb() {
-  await run(`
+  await privateMessageRun(`
     CREATE TABLE IF NOT EXISTS private_messages (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id_a INTEGER NOT NULL,
       user_id_b INTEGER NOT NULL,
       sender_id INTEGER NOT NULL,
@@ -167,8 +159,8 @@ async function initPrivateMessageDb() {
     )
   `);
 
-  await run(`CREATE INDEX IF NOT EXISTS idx_private_messages_pair ON private_messages(user_id_a, user_id_b, created_at)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id, created_at)`);
+  await privateMessageRun(`CREATE INDEX IF NOT EXISTS idx_private_messages_pair ON private_messages(user_id_a, user_id_b, created_at)`);
+  await privateMessageRun(`CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id, created_at)`);
 }
 
 function normalizeConcertKey(rawValue) {
@@ -186,22 +178,23 @@ function normalizeConcertKey(rawValue) {
 }
 
 async function ensureDefaultConcertDiscussion(concertKey) {
-  const existing = await get(
-    `SELECT id FROM concert_messages WHERE concert_key = $1 LIMIT 1`,
+  const existing = await chatGet(
+    `SELECT id FROM concert_messages WHERE concert_key = ? LIMIT 1`,
     [concertKey]
   );
-  await run(
-  async function run(sql, params = []) {
-    return await pool.query(sql, params);
+  if (existing) {
+    return;
   }
-    `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+
+  await chatRun(
+    `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
     [concertKey, null, "WithMe", "Discussion de concert", Date.now()]
   );
 }
 
 async function ensureUserProfileColumns() {
-  const columns = await all(`SELECT column_name FROM information_schema.columns WHERE table_name='users' AND table_schema='public'`);
-  const columnNames = new Set(columns.map((col) => String(col.column_name || "")));
+  const columns = await all(`PRAGMA table_info(users)`);
+  const columnNames = new Set(columns.map((col) => String(col.name || "")));
 
   if (!columnNames.has("bio")) {
     await run(`ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''`);
@@ -213,13 +206,13 @@ async function ensureUserProfileColumns() {
     await run(`ALTER TABLE users ADD COLUMN banner_url TEXT NOT NULL DEFAULT ''`);
   }
   if (!columnNames.has("avatar_blob")) {
-    await run(`ALTER TABLE users ADD COLUMN avatar_blob BYTEA`);
+    await run(`ALTER TABLE users ADD COLUMN avatar_blob BLOB`);
   }
   if (!columnNames.has("avatar_mime")) {
     await run(`ALTER TABLE users ADD COLUMN avatar_mime TEXT NOT NULL DEFAULT ''`);
   }
   if (!columnNames.has("banner_blob")) {
-    await run(`ALTER TABLE users ADD COLUMN banner_blob BYTEA`);
+    await run(`ALTER TABLE users ADD COLUMN banner_blob BLOB`);
   }
   if (!columnNames.has("banner_mime")) {
     await run(`ALTER TABLE users ADD COLUMN banner_mime TEXT NOT NULL DEFAULT ''`);
@@ -229,7 +222,7 @@ async function ensureUserProfileColumns() {
 async function initDb() {
   await run(`
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
@@ -242,7 +235,7 @@ async function initDb() {
 
   await run(`
     CREATE TABLE IF NOT EXISTS sessions (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       token TEXT NOT NULL UNIQUE,
       created_at INTEGER NOT NULL,
@@ -257,7 +250,7 @@ async function initDb() {
 
   await run(`
     CREATE TABLE IF NOT EXISTS friendships (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id_a INTEGER NOT NULL,
       user_id_b INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
@@ -273,7 +266,7 @@ async function initDb() {
 
   await run(`
     CREATE TABLE IF NOT EXISTS friend_requests (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       sender_id INTEGER NOT NULL,
       receiver_id INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
@@ -293,7 +286,7 @@ async function initDb() {
 }
 
 async function cleanupExpiredSessions() {
-  await run(`DELETE FROM sessions WHERE expires_at <= $1`, [Date.now()]);
+  await run(`DELETE FROM sessions WHERE expires_at <= ?`, [Date.now()]);
 }
 
 function normalizeUserId(value) {
@@ -327,7 +320,7 @@ async function friendshipExists(userId1, userId2) {
   }
 
   const row = await get(
-    `SELECT id FROM friendships WHERE user_id_a = $1 AND user_id_b = $2 LIMIT 1`,
+    `SELECT id FROM friendships WHERE user_id_a = ? AND user_id_b = ? LIMIT 1`,
     [pair.a, pair.b]
   );
   return Boolean(row);
@@ -344,11 +337,11 @@ async function getPendingFriendRequestRelation(viewerId, targetUserId) {
   }
 
   const incoming = await get(
-    `SELECT id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
+    `SELECT id FROM friend_requests WHERE sender_id = ? AND receiver_id = ? LIMIT 1`,
     [target, viewer]
   );
   const outgoing = await get(
-    `SELECT id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
+    `SELECT id FROM friend_requests WHERE sender_id = ? AND receiver_id = ? LIMIT 1`,
     [viewer, target]
   );
 
@@ -470,7 +463,7 @@ async function createSession(userId) {
   const expiresAt = now + SESSION_TTL_MS;
 
   await run(
-    `INSERT INTO sessions (user_id, token, created_at, expires_at) VALUES ($1, $2, $3, $4) RETURNING id`,
+    `INSERT INTO sessions (user_id, token, created_at, expires_at) VALUES (?, ?, ?, ?)`,
     [userId, token, now, expiresAt]
   );
 
@@ -501,7 +494,7 @@ async function authMiddleware(req, res, next) {
     }
 
     if (Date.now() >= Number(sessionRow.expires_at || 0)) {
-      await run(`DELETE FROM sessions WHERE token = $1`, [token]);
+      await run(`DELETE FROM sessions WHERE token = ?`, [token]);
       res.status(401).json({ error: "session_expired" });
       return;
     }
@@ -568,7 +561,7 @@ app.post("/api/auth/register", async (req, res) => {
       return;
     }
 
-    const existing = await get(`SELECT id FROM users WHERE username = $1 OR email = $2`, [username, email]);
+    const existing = await get(`SELECT id FROM users WHERE username = ? OR email = ?`, [username, email]);
     if (existing) {
       res.status(409).json({ error: "account_already_exists" });
       return;
@@ -576,15 +569,15 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await run(
+      `INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
       [username, email, passwordHash, now, now]
     );
 
-    const userId = Number(insertResult.rows[0]?.id);
+    const userId = Number(insertResult.lastID);
     const session = await createSession(userId);
     const userRow = await get(
-      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [userId]
     );
 
@@ -605,7 +598,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const userRow = await get(
-      `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = $1`,
+      `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = ?`,
       [email]
     );
 
@@ -633,7 +626,7 @@ app.get("/api/auth/me", authMiddleware, async (req, res) => {
 
 app.post("/api/auth/logout", authMiddleware, async (req, res) => {
   try {
-    await run(`DELETE FROM sessions WHERE token = $1`, [req.authToken]);
+    await run(`DELETE FROM sessions WHERE token = ?`, [req.authToken]);
     res.status(200).json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: "server_error" });
@@ -652,12 +645,12 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
 
     const now = Date.now();
     await run(
-      `UPDATE users SET spotify_id = $1, spotify_display_name = $2, updated_at = $3 WHERE id = $4`,
+      `UPDATE users SET spotify_id = ?, spotify_display_name = ?, updated_at = ? WHERE id = ?`,
       [spotifyId, spotifyDisplayName, now, req.user.id]
     );
 
     const updatedUser = await get(
-      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [req.user.id]
     );
 
@@ -670,7 +663,7 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
 app.get("/api/profile", authMiddleware, async (req, res) => {
   try {
     const userRow = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [req.user.id]
     );
 
@@ -688,7 +681,7 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
 app.put("/api/profile", authMiddleware, async (req, res) => {
   try {
     const currentUser = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [req.user.id]
     );
 
@@ -738,7 +731,7 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
     }
 
     const duplicate = await get(
-      `SELECT id FROM users WHERE (username = $1 OR email = $2) AND id != $3`,
+      `SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?`,
       [username, email, req.user.id]
     );
     if (duplicate) {
@@ -748,12 +741,12 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
 
     const now = Date.now();
     await run(
-      `UPDATE users SET username = $1, email = $2, bio = $3, avatar_blob = $4, avatar_mime = $5, banner_blob = $6, banner_mime = $7, updated_at = $8 WHERE id = $9`,
+      `UPDATE users SET username = ?, email = ?, bio = ?, avatar_blob = ?, avatar_mime = ?, banner_blob = ?, banner_mime = ?, updated_at = ? WHERE id = ?`,
       [username, email, bio, avatarBlob, avatarMime, bannerBlob, bannerMime, now, req.user.id]
     );
 
     const updatedUser = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = ?`,
       [req.user.id]
     );
 
@@ -941,7 +934,7 @@ app.post("/api/friends/:id", authMiddleware, async (req, res) => {
       return;
     }
 
-    const targetUser = await get(`SELECT id FROM users WHERE id = $1`, [targetUserId]);
+    const targetUser = await get(`SELECT id FROM users WHERE id = ?`, [targetUserId]);
     if (!targetUser) {
       res.status(404).json({ error: "user_not_found" });
       return;
@@ -960,7 +953,7 @@ app.post("/api/friends/:id", authMiddleware, async (req, res) => {
     }
 
     const existingOutgoing = await get(
-      `SELECT id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
+      `SELECT id FROM friend_requests WHERE sender_id = ? AND receiver_id = ? LIMIT 1`,
       [req.user.id, targetUserId]
     );
     if (existingOutgoing) {
@@ -969,7 +962,7 @@ app.post("/api/friends/:id", authMiddleware, async (req, res) => {
     }
 
     const existingIncoming = await get(
-      `SELECT id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
+      `SELECT id FROM friend_requests WHERE sender_id = ? AND receiver_id = ? LIMIT 1`,
       [targetUserId, req.user.id]
     );
     if (existingIncoming) {
@@ -977,14 +970,14 @@ app.post("/api/friends/:id", authMiddleware, async (req, res) => {
       return;
     }
 
-    const insertResult = await pool.query(
-      `INSERT INTO friend_requests (sender_id, receiver_id, created_at) VALUES ($1, $2, $3) RETURNING id`,
+    const insertResult = await run(
+      `INSERT INTO friend_requests (sender_id, receiver_id, created_at) VALUES (?, ?, ?)`,
       [req.user.id, targetUserId, Date.now()]
     );
 
     res.status(200).json({
       ok: true,
-      requestSent: Number(insertResult.rowCount || 0) > 0,
+      requestSent: Number(insertResult.changes || 0) > 0,
       alreadyFriend: false
     });
   } catch (error) {
@@ -1065,14 +1058,14 @@ app.post("/api/friend-requests/:userId/accept", authMiddleware, async (req, res)
       return;
     }
 
-    const sender = await get(`SELECT id FROM users WHERE id = $1`, [senderId]);
+    const sender = await get(`SELECT id FROM users WHERE id = ?`, [senderId]);
     if (!sender) {
       res.status(404).json({ error: "user_not_found" });
       return;
     }
 
     const pending = await get(
-      `SELECT id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
+      `SELECT id FROM friend_requests WHERE sender_id = ? AND receiver_id = ? LIMIT 1`,
       [senderId, req.user.id]
     );
     if (!pending) {
@@ -1087,12 +1080,12 @@ app.post("/api/friend-requests/:userId/accept", authMiddleware, async (req, res)
     }
 
     await run(
-      `INSERT OR IGNORE INTO friendships (user_id_a, user_id_b, created_at) VALUES ($1, $2, $3)`,
+      `INSERT OR IGNORE INTO friendships (user_id_a, user_id_b, created_at) VALUES (?, ?, ?)`,
       [pair.a, pair.b, Date.now()]
     );
 
     await run(
-      `DELETE FROM friend_requests WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $3 AND receiver_id = $4)`,
+      `DELETE FROM friend_requests WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)`,
       [senderId, req.user.id, req.user.id, senderId]
     );
 
@@ -1111,19 +1104,19 @@ app.delete("/api/friend-requests/:userId", authMiddleware, async (req, res) => {
     }
 
     const incomingResult = await run(
-      `DELETE FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2`,
+      `DELETE FROM friend_requests WHERE sender_id = ? AND receiver_id = ?`,
       [targetUserId, req.user.id]
     );
-    if (Number(incomingResult.rowCount || 0) > 0) {
+    if (Number(incomingResult.changes || 0) > 0) {
       res.status(200).json({ ok: true, action: "refused" });
       return;
     }
 
     const outgoingResult = await run(
-      `DELETE FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2`,
+      `DELETE FROM friend_requests WHERE sender_id = ? AND receiver_id = ?`,
       [req.user.id, targetUserId]
     );
-    if (Number(outgoingResult.rowCount || 0) > 0) {
+    if (Number(outgoingResult.changes || 0) > 0) {
       res.status(200).json({ ok: true, action: "cancelled" });
       return;
     }
@@ -1189,13 +1182,13 @@ app.delete("/api/friends/:id", authMiddleware, async (req, res) => {
     }
 
     const result = await run(
-      `DELETE FROM friendships WHERE user_id_a = $1 AND user_id_b = $2`,
+      `DELETE FROM friendships WHERE user_id_a = ? AND user_id_b = ?`,
       [pair.a, pair.b]
     );
 
     res.status(200).json({
       ok: true,
-      removed: Number(result.rowCount || 0) > 0
+      removed: Number(result.changes || 0) > 0
     });
   } catch (error) {
     res.status(500).json({ error: "server_error" });
@@ -1214,7 +1207,7 @@ app.get("/api/private-chat/:userId/messages", authMiddleware, async (req, res) =
       return;
     }
 
-    const targetUser = await get(`SELECT id FROM users WHERE id = $1`, [targetUserId]);
+    const targetUser = await get(`SELECT id FROM users WHERE id = ?`, [targetUserId]);
     if (!targetUser) {
       res.status(404).json({ error: "user_not_found" });
       return;
@@ -1235,7 +1228,7 @@ app.get("/api/private-chat/:userId/messages", authMiddleware, async (req, res) =
     const limitRaw = Number(req.query?.limit || 80);
     const limit = Number.isFinite(limitRaw) ? Math.min(120, Math.max(1, Math.floor(limitRaw))) : 80;
 
-    const rows = await all(
+    const rows = await privateMessageAll(
       `
         SELECT
           id,
@@ -1306,7 +1299,7 @@ app.post("/api/private-chat/:userId/messages", authMiddleware, async (req, res) 
       return;
     }
 
-    const targetUser = await get(`SELECT id FROM users WHERE id = $1`, [targetUserId]);
+    const targetUser = await get(`SELECT id FROM users WHERE id = ?`, [targetUserId]);
     if (!targetUser) {
       res.status(404).json({ error: "user_not_found" });
       return;
@@ -1335,14 +1328,14 @@ app.post("/api/private-chat/:userId/messages", authMiddleware, async (req, res) 
     }
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO private_messages (user_id_a, user_id_b, sender_id, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await privateMessageRun(
+      `INSERT INTO private_messages (user_id_a, user_id_b, sender_id, message, created_at) VALUES (?, ?, ?, ?, ?)`,
       [pair.a, pair.b, req.user.id, message, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         senderId: req.user.id,
         senderUsername: req.user.username || "Utilisateur",
         message,
@@ -1372,7 +1365,7 @@ app.delete("/api/private-chat/:userId/messages/:messageId", authMiddleware, asyn
       return;
     }
 
-    const targetUser = await get(`SELECT id FROM users WHERE id = $1`, [targetUserId]);
+    const targetUser = await get(`SELECT id FROM users WHERE id = ?`, [targetUserId]);
     if (!targetUser) {
       res.status(404).json({ error: "user_not_found" });
       return;
@@ -1384,7 +1377,7 @@ app.delete("/api/private-chat/:userId/messages/:messageId", authMiddleware, asyn
       return;
     }
 
-    const messageRow = await get(
+    const messageRow = await privateMessageGet(
       `
         SELECT id, sender_id, user_id_a, user_id_b
         FROM private_messages
@@ -1409,8 +1402,8 @@ app.delete("/api/private-chat/:userId/messages/:messageId", authMiddleware, asyn
       return;
     }
 
-    const result = await run(`DELETE FROM private_messages WHERE id = $1`, [messageId]);
-    if (Number(result.rowCount || 0) <= 0) {
+    const result = await privateMessageRun(`DELETE FROM private_messages WHERE id = ?`, [messageId]);
+    if (Number(result.changes || 0) <= 0) {
       res.status(404).json({ error: "message_not_found" });
       return;
     }
@@ -1429,7 +1422,7 @@ app.get("/api/concert-chat/:concertKey/messages", authMiddleware, async (req, re
 
     await ensureDefaultConcertDiscussion(concertKey);
 
-    const rows = await all(
+    const rows = await chatAll(
       `
         SELECT id, concert_key, user_id, username, message, created_at
         FROM concert_messages
@@ -1479,14 +1472,14 @@ app.post("/api/concert-chat/:concertKey/messages", authMiddleware, async (req, r
     await ensureDefaultConcertDiscussion(concertKey);
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await chatRun(
+      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
       [concertKey, req.user.id, req.user.username || "Utilisateur", message, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         concertKey,
         userId: req.user.id,
         username: req.user.username || "Utilisateur",
@@ -1511,7 +1504,7 @@ app.get("/api/concert-chat/messages", authMiddleware, async (req, res) => {
 
     await ensureDefaultConcertDiscussion(concertKey);
 
-    const rows = await all(
+    const rows = await chatAll(
       `
         SELECT id, concert_key, user_id, username, message, created_at
         FROM concert_messages
@@ -1561,14 +1554,14 @@ app.post("/api/concert-chat/messages", authMiddleware, async (req, res) => {
     await ensureDefaultConcertDiscussion(concertKey);
 
     const now = Date.now();
-    const insertResult = await pool.query(
-      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    const insertResult = await chatRun(
+      `INSERT INTO concert_messages (concert_key, user_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)`,
       [concertKey, req.user.id, req.user.username || "Utilisateur", message, now]
     );
 
     res.status(201).json({
       item: {
-        id: Number(insertResult.rows[0]?.id || 0),
+        id: Number(insertResult.lastID || 0),
         concertKey,
         userId: req.user.id,
         username: req.user.username || "Utilisateur",
@@ -1587,43 +1580,6 @@ app.post("/api/concert-chat/messages", authMiddleware, async (req, res) => {
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ ok: true });
-});
-
-app.get("/api/health/firestore", async (req, res) => {
-  try {
-    if (!hasFirestoreConfig()) {
-      const configError = getFirestoreConfigError();
-      res.status(503).json({
-        ok: false,
-        error: "firestore_not_configured",
-        details: configError || "missing_credentials_or_project_id"
-      });
-      return;
-    }
-
-    await pingFirestore();
-    res.status(200).json({ ok: true });
-  } catch (error) {
-    res.status(503).json({ ok: false, error: "firestore_unreachable" });
-  }
-});
-
-app.use((req, res, next) => {
-  const blockedPathPatterns = [
-    /^\/\.env(?:\.|$)/i,
-    /^\/certs(?:\/|$)/i,
-    /^\/database(?:\/|$)/i,
-    /^\/server\.js$/i,
-    /^\/package(?:-lock)?\.json$/i,
-    /^\/.*service-account.*\.json$/i,
-  ];
-
-  if (blockedPathPatterns.some((pattern) => pattern.test(req.path || ""))) {
-    res.status(404).end();
-    return;
-  }
-
-  next();
 });
 
 app.use(express.static(__dirname));
@@ -1660,9 +1616,11 @@ function startHttpRedirectServer() {
 Promise.all([initDb(), initConcertChatDb(), initPrivateMessageDb()])
   .then(() => {
     const httpsOptions = createHttpsOptions();
+
     https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
       console.log(`WithMe HTTPS server listening on https://localhost:${HTTPS_PORT}`);
     });
+
     startHttpRedirectServer();
   })
   .catch((error) => {
