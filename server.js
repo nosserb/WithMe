@@ -691,11 +691,16 @@ app.use((req, res, next) => {
 
 app.use((req, res, next) => {
   const origin = String(req.headers.origin || "").trim();
+  const requestedPrivateNetwork = String(req.headers["access-control-request-private-network"] || "").toLowerCase() === "true";
   if (origin && ALLOWED_CORS_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Max-Age", "600");
+    if (requestedPrivateNetwork) {
+      res.setHeader("Access-Control-Allow-Private-Network", "true");
+    }
   }
 
   if (req.method === "OPTIONS") {
