@@ -5,7 +5,7 @@ window.WITHME_CONFIG = {
 	spotifyRedirectUri: "https://nosserb.github.io/WithMe/login.html",
 	redirectUri: "https://nosserb.github.io/WithMe/login.html",
 	localRedirectUri: "https://nosserb.github.io/WithMe/login.html",
-	postLoginRedirect: "https://localhost:3443/index.html",
+	postLoginRedirect: "https://nosserb.github.io/WithMe/index.html",
 	apiBaseUrl: WITHME_IS_GITHUB_PAGES ? "https://localhost:3443" : "",
 	TicketmasterKey: "eD59GweBRt9SXEpsiPs87U6RJGHw0CL8",
 	firebase: {
