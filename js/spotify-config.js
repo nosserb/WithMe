@@ -78,7 +78,7 @@ window.WITHME_CONFIG = {
 				: window.firebase.initializeApp(firebaseConfig);
 
 			let analytics = null;
-			if (firebaseConfig.measurementId && window.location.protocol === "https:") {
+			if (firebaseConfig.measurementId && window.location.protocol === "https:" && !WITHME_IS_GITHUB_PAGES) {
 				try {
 					analytics = window.firebase.analytics(app);
 				} catch (e) {

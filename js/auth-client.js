@@ -3,7 +3,12 @@
 	const USER_KEY = "WithMe-user";
 
 	function getApiBaseUrl() {
-		return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim();
+		const configured = String(window.WITHME_CONFIG?.apiBaseUrl || "").trim();
+		const isGithubPages = /(^|\.)github\.io$/i.test(window.location.hostname || "");
+		if (isGithubPages && /^https:\/\/127\.0\.0\.1:3443\b/i.test(configured)) {
+			return "https://localhost:3443";
+		}
+		return configured;
 	}
 
 	function apiUrl(path) {
