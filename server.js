@@ -231,6 +231,41 @@ async function ensureUserProfileColumns() {
   }
 }
 
+function normalizeExistingUserId(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(parsed));
+}
+
+async function ensureUsersHaveIds() {
+  const rows = await all(`SELECT rowid, id FROM users ORDER BY rowid ASC`);
+  let maxId = 0;
+
+  for (const row of rows) {
+    const existingId = normalizeExistingUserId(row?.id);
+    if (existingId > maxId) {
+      maxId = existingId;
+    }
+  }
+
+  for (const row of rows) {
+    const existingId = normalizeExistingUserId(row?.id);
+    if (existingId > 0) {
+      continue;
+    }
+
+    maxId += 1;
+    await run(`UPDATE users SET id = ? WHERE rowid = ?`, [maxId, row.rowid]);
+  }
+}
+
+async function getNextUserId() {
+  const row = await get(`SELECT COALESCE(MAX(CAST(id AS INTEGER)), 0) AS max_id FROM users`);
+  return Number(row?.max_id || 0) + 1;
+}
+
 async function initDb() {
   await run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -324,6 +359,7 @@ async function initDb() {
   await run(`CREATE INDEX IF NOT EXISTS idx_e2ee_private_chat_pair ON e2ee_private_chat_keys(user_id_a, user_id_b)`);
 
   await ensureUserProfileColumns();
+  await ensureUsersHaveIds();
 
   await cleanupExpiredSessions();
 }
@@ -674,7 +710,7 @@ async function syncUsersToFirestore() {
     const userRows = await all(
       `
         SELECT
-          id,
+          COALESCE(CAST(id AS INTEGER), rowid) AS id,
           username,
           email,
           bio,
@@ -774,12 +810,13 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const now = Date.now();
-    const insertResult = await run(
-      `INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      [username, email, passwordHash, now, now]
+    const nextUserId = await getNextUserId();
+    await run(
+      `INSERT INTO users (id, username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [nextUserId, username, email, passwordHash, now, now]
     );
 
-    const userId = Number(insertResult.lastID);
+    const userId = nextUserId;
     const session = await createSession(userId);
     const userRow = await get(
       `SELECT id, username, email, bio, spotify_id, spotify_display_name FROM users WHERE id = ?`,
