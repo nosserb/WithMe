@@ -21,6 +21,8 @@ const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const CANONICAL_HOST = process.env.APP_HOST || "127.0.0.1";
 const ALLOWED_CORS_ORIGINS = new Set([
   `https://${CANONICAL_HOST}:${HTTPS_PORT}`,
+  `https://localhost:${HTTPS_PORT}`,
+  `https://127.0.0.1:${HTTPS_PORT}`,
   "https://nosserb.github.io"
 ]);
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || path.join(__dirname, "certs", "localhost-key.pem");
@@ -666,13 +668,6 @@ function isValidEmail(value) {
 app.use(express.json({ limit: "1mb" }));
 
 app.use((req, res, next) => {
-  const hostHeader = String(req.headers.host || "").toLowerCase();
-  if (hostHeader.startsWith("localhost:")) {
-    const target = `https://${CANONICAL_HOST}:${HTTPS_PORT}${req.originalUrl || req.url || "/"}`;
-    res.redirect(301, target);
-    return;
-  }
-
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
