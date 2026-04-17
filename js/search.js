@@ -120,7 +120,7 @@ function createTrackCard(track) {
 			<p>${artists || "Artiste inconnu"}</p>
 			<small>Album: ${track.album?.name || "-"} · ${msToMinSec(track.duration_ms)}</small>
 		</div>
-		<a class="detail-link" href="/track.html?id=${encodeURIComponent(track.id)}">Voir la fiche</a>
+		<a class="detail-link" href="track.html?id=${encodeURIComponent(track.id)}">Voir la fiche</a>
 	`;
 	return card;
 }
@@ -142,7 +142,7 @@ function createArtistCard(artist) {
 			<p>${artist.genres?.slice(0, 2).join(", ") || "Genre non precise"}</p>
 			<small>${followers} followers · Popularite ${artist.popularity || 0}</small>
 		</div>
-		<a class="detail-link" href="/artist.html?id=${encodeURIComponent(artist.id)}&name=${encodeURIComponent(artistName)}&followers=${encodeURIComponent(followersRaw)}&popularity=${encodeURIComponent(popularityRaw)}&genres=${encodeURIComponent(genresRaw)}&image=${encodeURIComponent(cover)}">Voir la fiche</a>
+		<a class="detail-link" href="artist.html?id=${encodeURIComponent(artist.id)}&name=${encodeURIComponent(artistName)}&followers=${encodeURIComponent(followersRaw)}&popularity=${encodeURIComponent(popularityRaw)}&genres=${encodeURIComponent(genresRaw)}&image=${encodeURIComponent(cover)}">Voir la fiche</a>
 	`;
 	return card;
 }
@@ -162,7 +162,7 @@ function createUserCard(user) {
 			<p>${email || "Email indisponible"}</p>
 			<small>${bio || "Aucune bio"}</small>
 		</div>
-		<a class="detail-link" href="/user.html?id=${encodeURIComponent(user?.id || "")}">Voir profil</a>
+		<a class="detail-link" href="user.html?id=${encodeURIComponent(user?.id || "")}">Voir profil</a>
 	`;
 	return card;
 }
