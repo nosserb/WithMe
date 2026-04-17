@@ -1627,12 +1627,7 @@ body.dark-mode .dm-delete-btn {
 	}
 
 	.player-bar {
-		left: 10px;
-		right: 10px;
-		width: auto;
-		transform: none;
-		grid-template-columns: 1fr;
-		border-radius: 22px 22px 0 0;
+		display: none;
 	}
 
 	.now-playing,
@@ -1643,11 +1638,11 @@ body.dark-mode .dm-delete-btn {
 	body.dashboard-page {
 		height: 100dvh;
 		overflow: hidden;
-		padding: 10px 10px 152px;
+		padding: 10px 10px 92px;
 	}
 
 	body.dashboard-page .app-shell {
-		height: calc(100dvh - 196px);
+		height: calc(100dvh - 136px);
 		overflow: hidden;
 	}
 
@@ -1663,12 +1658,7 @@ body.dark-mode .dm-delete-btn {
 	}
 
 	body.dashboard-page .player-bar {
-		left: 10px;
-		right: 10px;
-		bottom: 74px;
-		padding: 8px 10px;
-		gap: 8px;
-		grid-template-columns: 1fr;
+		display: none;
 	}
 
 	body.dashboard-page .volume-box {
@@ -1916,18 +1906,15 @@ body.dark-mode .dm-delete-btn {
 	}
 
 	body.dashboard-page {
-		padding: 8px 8px 146px;
+		padding: 8px 8px 88px;
 	}
 
 	body.dashboard-page .app-shell {
-		height: calc(100dvh - 180px);
+		height: calc(100dvh - 122px);
 	}
 
 	body.dashboard-page .player-bar {
-		left: 8px;
-		right: 8px;
-		bottom: 70px;
-		padding: 8px;
+		display: none;
 	}
 
 	body.dashboard-page .now-playing h5 {
