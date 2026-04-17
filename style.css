@@ -273,6 +273,10 @@ body {
 	background: var(--nav-active-bg);
 }
 
+.page-nav a:active {
+	transform: translateY(1px);
+}
+
 .page-header h1 {
 	margin: 0;
 	font-size: clamp(1.05rem, 1.6vw, 1.25rem);
@@ -1526,17 +1530,25 @@ body.dark-mode .dm-delete-btn {
 
 @media (max-width: 960px) {
 	body {
-		padding-bottom: 140px;
+		padding: 10px 10px 92px;
 	}
 
 	.page-header {
-		padding: 12px;
+		position: sticky;
+		top: 10px;
+		z-index: 30;
+		padding: 12px 12px 10px;
 		align-items: flex-start;
 		flex-wrap: wrap;
+		border-radius: 22px;
+		backdrop-filter: blur(18px);
+		background: color-mix(in srgb, var(--surface) 88%, transparent);
+		box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
 	}
 
 	.page-header-left {
 		flex-wrap: wrap;
+		gap: 10px;
 	}
 
 	.header-profile-link {
@@ -1546,33 +1558,81 @@ body.dark-mode .dm-delete-btn {
 	}
 
 	.page-nav {
-		width: 100%;
+		position: fixed;
+		left: 10px;
+		right: 10px;
+		bottom: 10px;
+		z-index: 40;
+		justify-content: space-between;
+		gap: 6px;
+		padding: 8px;
+		border: 1px solid var(--line);
+		border-radius: 22px;
+		background: color-mix(in srgb, var(--surface) 90%, transparent);
+		backdrop-filter: blur(18px);
+		box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
 		overflow-x: auto;
+	}
+
+	.page-nav a {
+		flex: 1 0 0;
+		text-align: center;
+		padding: 10px 12px;
+		font-size: 0.8rem;
 	}
 
 	.header-actions {
 		align-self: flex-start;
+		margin-left: auto;
+		gap: 8px;
+	}
+
+	.theme-toggle-btn,
+	.login-top-btn {
+		padding: 8px 12px;
+		min-height: 38px;
+		font-size: 0.82rem;
 	}
 
 	.app-shell {
 		grid-template-columns: 1fr;
-		padding: 12px;
+		padding: 0;
+		gap: 12px;
+	}
+
+	.sidebar {
+		display: none;
+	}
+
+	.main-content,
+	.page-main,
+	.detail-main,
+	.profile-page,
+	.chat-page,
+	.dm-chat-shell {
+		border-radius: 22px;
+		width: 100%;
+		max-width: 100%;
+		margin: 0;
 	}
 
 	.content-columns {
 		grid-template-columns: 1fr;
+		gap: 12px;
 	}
 
 	.quick-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
 	}
 
 	.player-bar {
-		left: 12px;
-		right: 12px;
+		left: 10px;
+		right: 10px;
 		width: auto;
 		transform: none;
 		grid-template-columns: 1fr;
+		border-radius: 22px 22px 0 0;
 	}
 
 	.now-playing,
@@ -1582,13 +1642,207 @@ body.dark-mode .dm-delete-btn {
 }
 
 @media (max-width: 620px) {
+	body {
+		padding: 8px 8px 88px;
+	}
+
+	.page-header {
+		top: 8px;
+		padding: 10px;
+		gap: 10px;
+	}
+
+	.page-header h1 {
+		font-size: 1rem;
+	}
+
+	.header-sub {
+		display: none;
+	}
+
+	.brand-inline .brand-glyph {
+		width: 32px;
+		height: 32px;
+	}
+
+	.eyebrow {
+		font-size: 0.76rem;
+	}
+
+	.header-profile-link {
+		padding: 5px 8px 5px 5px;
+		max-width: 100%;
+	}
+
+	.header-profile-avatar {
+		width: 34px;
+		height: 34px;
+	}
+
+	.header-profile-copy strong {
+		font-size: 0.78rem;
+	}
+
+	.header-profile-copy small {
+		font-size: 0.7rem;
+	}
+
+	.theme-toggle-btn,
+	.login-top-btn {
+		padding: 7px 10px;
+		min-height: 36px;
+	}
+
+	.page-nav {
+		left: 8px;
+		right: 8px;
+		bottom: 8px;
+		padding: 7px;
+		border-radius: 20px;
+	}
+
+	.page-nav a {
+		padding: 9px 8px;
+		font-size: 0.76rem;
+	}
+
+	.card,
+	.page-main,
+	.detail-main,
+	.profile-page,
+	.chat-page,
+	.dm-chat-shell {
+		border-radius: 20px;
+	}
+
+	.page-main,
+	.detail-main {
+		padding: 12px;
+	}
+
+	.search-hero,
+	.search-toolbar,
+	.result-card,
+	.overview-card,
+	.quick-card,
+	.album-card,
+	.concert-list li,
+	.side-track,
+	.playlist-item,
+	.friend-item,
+	.dm-message .dm-bubble {
+		border-radius: 18px;
+	}
+
 	.quick-grid,
 	.album-row {
 		grid-template-columns: 1fr;
+		gap: 10px;
+	}
+
+	.search-toolbar {
+		gap: 8px;
+	}
+
+	.search-input,
+	.search-select,
+	.login-top-btn,
+	.secondary-pill {
+		min-height: 44px;
+	}
+
+	.search-hero {
+		padding: 12px;
+	}
+
+	.search-hero h2 {
+		font-size: 1rem;
+	}
+
+	.search-status,
+	.list-title {
+		font-size: 0.84rem;
+	}
+
+	.result-card {
+		grid-template-columns: 56px minmax(0, 1fr);
+		padding: 10px;
+	}
+
+	.result-card img {
+		width: 56px;
+		height: 56px;
+	}
+
+	.detail-link {
+		grid-column: 1 / -1;
+		justify-self: start;
+	}
+
+	.detail-layout {
+		gap: 12px;
+	}
+
+	.profile-hero-banner {
+		height: 132px;
+	}
+
+	.profile-hero-meta {
+		padding: 0 14px 14px;
+		gap: 12px;
+	}
+
+	.profile-avatar {
+		width: 78px;
+		height: 78px;
+	}
+
+	.profile-hero-media-actions,
+	.profile-form,
+	.profile-media-card,
+	.friends-panel,
+	.dm-chat-topbar,
+	.dm-compose {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	.profile-hero-media-actions {
+		padding-top: 12px;
+		padding-bottom: 14px;
+	}
+
+	.profile-grid {
+		gap: 12px;
+	}
+
+	.friends-list,
+	.result-grid,
+	.concert-list,
+	.simple-list {
+		gap: 8px;
 	}
 
 	.top-actions {
 		display: none;
+	}
+
+	.chat-form {
+		gap: 10px;
+	}
+
+	.chat-message,
+	.dm-message {
+		max-width: 100%;
+	}
+
+	.dm-chat-shell {
+		height: calc(100vh - 170px);
+		min-height: 520px;
+	}
+
+	.dm-thread {
+		padding: 10px 8px 8px;
 	}
 }
 
