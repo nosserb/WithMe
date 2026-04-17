@@ -10,6 +10,7 @@ const sqlite3 = require("sqlite3").verbose();
 const {
   hasFirestoreConfig,
   getFirestoreConfigError,
+  getFirestoreRuntimeError,
   pingFirestore,
   mirrorSqliteTables,
   fetchFirestoreTables
@@ -828,7 +829,10 @@ app.post("/api/auth/register", async (req, res) => {
       [userId]
     );
 
-    void syncUsersToFirestore();
+    const synced = await syncUsersToFirestore();
+    if (!synced) {
+      console.warn("Firestore users sync skipped/failed after register");
+    }
 
     res.status(201).json({ token: session.token, expiresAt: session.expiresAt, user: sanitizeUser(userRow, { includeImages: false }) });
   } catch (error) {
@@ -903,7 +907,10 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    void syncUsersToFirestore();
+    const synced = await syncUsersToFirestore();
+    if (!synced) {
+      console.warn("Firestore users sync skipped/failed after spotify link");
+    }
 
     res.status(200).json({ user: sanitizeUser(updatedUser, { includeImages: false }) });
   } catch (error) {
@@ -1001,7 +1008,10 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    void syncUsersToFirestore();
+    const synced = await syncUsersToFirestore();
+    if (!synced) {
+      console.warn("Firestore users sync skipped/failed after profile update");
+    }
 
     res.status(200).json({ user: sanitizeUser(updatedUser) });
   } catch (error) {
@@ -2103,7 +2113,13 @@ app.get("/api/health/firestore", async (req, res) => {
     await pingFirestore();
     res.status(200).json({ ok: true });
   } catch (error) {
-    res.status(503).json({ ok: false, error: "firestore_unreachable" });
+    const runtimeError = getFirestoreRuntimeError();
+    const configError = getFirestoreConfigError();
+    res.status(503).json({
+      ok: false,
+      error: "firestore_unreachable",
+      details: String(runtimeError || configError || error?.message || "unknown_firestore_error")
+    });
   }
 });
 

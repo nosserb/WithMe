@@ -4,6 +4,7 @@ const admin = require("firebase-admin");
 let initialized = false;
 let firestoreInstance = null;
 let lastConfigError = null;
+let lastRuntimeError = null;
 
 function setConfigError(error) {
   if (!error) {
@@ -15,11 +16,39 @@ function setConfigError(error) {
   lastConfigError = message;
 }
 
+function setRuntimeError(error) {
+  if (!error) {
+    lastRuntimeError = null;
+    return;
+  }
+
+  const message = String(error.message || error || "firestore_runtime_error");
+  lastRuntimeError = message;
+}
+
+function normalizeServiceAccountCredentials(credentials) {
+  if (!credentials || typeof credentials !== "object") {
+    return credentials;
+  }
+
+  const normalized = { ...credentials };
+  if (typeof normalized.private_key === "string") {
+    normalized.private_key = normalized.private_key.replace(/\\n/g, "\n").trim();
+  }
+  if (typeof normalized.client_email === "string") {
+    normalized.client_email = normalized.client_email.trim();
+  }
+  if (typeof normalized.project_id === "string") {
+    normalized.project_id = normalized.project_id.trim();
+  }
+  return normalized;
+}
+
 function getCredentialsFromEnv() {
   try {
     const rawJson = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "").trim();
     if (rawJson) {
-      const parsed = JSON.parse(rawJson);
+      const parsed = normalizeServiceAccountCredentials(JSON.parse(rawJson));
       setConfigError(null);
       return parsed;
     }
@@ -31,7 +60,7 @@ function getCredentialsFromEnv() {
     ).trim();
     if (credentialsPath) {
       const content = fs.readFileSync(credentialsPath, "utf8");
-      const parsed = JSON.parse(content);
+      const parsed = normalizeServiceAccountCredentials(JSON.parse(content));
       setConfigError(null);
       return parsed;
     }
@@ -82,19 +111,35 @@ function initFirestore() {
     throw new Error("firestore_not_configured");
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(credentials),
-    projectId
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(credentials),
+      projectId
+    });
 
-  firestoreInstance = admin.firestore();
-  initialized = true;
-  return firestoreInstance;
+    firestoreInstance = admin.firestore();
+    initialized = true;
+    setRuntimeError(null);
+    return firestoreInstance;
+  } catch (error) {
+    setRuntimeError(error);
+    throw error;
+  }
 }
 
 async function pingFirestore() {
-  const db = initFirestore();
-  await db.collection("__healthcheck").limit(1).get();
+  try {
+    const db = initFirestore();
+    await db.collection("__healthcheck").limit(1).get();
+    setRuntimeError(null);
+  } catch (error) {
+    setRuntimeError(error);
+    throw error;
+  }
+}
+
+function getFirestoreRuntimeError() {
+  return lastRuntimeError;
 }
 
 function serializeSqliteRow(row) {
@@ -220,6 +265,7 @@ async function fetchFirestoreTables(tableConfigs = []) {
 module.exports = {
   hasFirestoreConfig,
   getFirestoreConfigError,
+  getFirestoreRuntimeError,
   pingFirestore,
   mirrorSqliteTables,
   fetchFirestoreTables
