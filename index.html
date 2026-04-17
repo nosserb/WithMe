@@ -8,7 +8,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="style.css?v=20260418-mobile-concert2" />
+	<link rel="stylesheet" href="style.css?v=20260418-desktop-compact1" />
 </head>
 <body class="dashboard-page">
 	<header class="page-header">
@@ -73,14 +73,26 @@
 		</aside>
 
 		<main class="main-content card">
-			<header class="top-bar">
-				<div>
-					<p id="greetLine" class="greet">Bonjour</p>
-					<h2>Tableau de bord musical</h2>
+			<header class="page-header">
+				<div class="page-header-left">
+					<div class="brand-inline">
+						<span class="brand-glyph" aria-hidden="true">WM</span>
+						<p class="eyebrow">WithMe</p>
+					</div>
+					<nav class="page-nav" aria-label="Navigation principale">
+						<a href="index.html">Dashboard</a>
+						<a href="search.html">Recherche</a>
+						<a class="mobile-only-nav active" href="concert-mobile.html">Concerts</a>
+						<a href="profile.html">Profil</a>
+					</nav>
 				</div>
-				<div class="top-actions">
-					<button class="icon-btn" aria-label="Notifications">i</button>
-					<button class="avatar-btn" aria-label="Profile">AL</button>
+				<div class="header-meta">
+					<h1>Concerts</h1>
+					<p class="header-sub">Selection rapide des prochains concerts.</p>
+				</div>
+				<div class="header-actions">
+					<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
+					<a id="authActionBtn" class="login-top-btn" href="login.html">Connexion</a>
 				</div>
 			</header>
 

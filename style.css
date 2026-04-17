@@ -1494,6 +1494,114 @@ body.dark-mode .dm-delete-btn {
 	align-items: center;
 }
 
+@media (min-width: 961px) {
+	html,
+	body {
+		height: 100%;
+	}
+
+	body {
+		height: 100dvh;
+		overflow: hidden;
+		padding: 14px 14px 104px;
+	}
+
+	.page-header {
+		padding: 12px 18px;
+		margin: 0 0 10px;
+	}
+
+	.app-shell {
+		height: calc(100dvh - 148px);
+		overflow: hidden;
+		align-items: stretch;
+	}
+
+	.sidebar,
+	.main-content,
+	.artist-panel {
+		height: 100%;
+		overflow: auto;
+	}
+
+	.main-content {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.content-columns {
+		flex: 1;
+		min-height: 0;
+		margin-top: 12px;
+	}
+
+	.left-feed,
+	.insight-column {
+		min-height: 0;
+		overflow: auto;
+	}
+
+	body.dashboard-page .overview-strip {
+		margin-top: 10px;
+	}
+
+	body.dashboard-page .quick-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+
+	body.dashboard-page .album-row {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	body.dashboard-page .section-head {
+		margin: 16px 0 8px;
+	}
+
+	body.dashboard-page .ranking-list {
+		max-height: 240px;
+		overflow: auto;
+	}
+
+	.page-main,
+	.detail-main,
+	.profile-page,
+	.chat-page,
+	.dm-chat-shell,
+	.mobile-concert-page-main {
+		height: calc(100dvh - 148px);
+		overflow: auto;
+	}
+
+	.page-main,
+	.detail-main {
+		padding: 14px;
+	}
+
+	.search-toolbar {
+		margin-bottom: 8px;
+	}
+
+	.dm-chat-shell {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr) auto;
+	}
+
+	.dm-thread {
+		min-height: 0;
+		overflow: auto;
+	}
+
+	.profile-grid {
+		min-height: 0;
+	}
+
+	.player-bar {
+		left: 14px;
+		right: 14px;
+		bottom: 10px;
+	}
+}
+
 @media (max-width: 800px) {
 	.chat-form {
 		grid-template-columns: 1fr;
