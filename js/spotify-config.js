@@ -47,7 +47,8 @@ function resolveApiBaseUrl() {
 		return fromStorage;
 	}
 
-	return "";
+	const PROD_BACKEND = "https://withme-f3ay.onrender.com";
+	return PROD_BACKEND;
 }
 
 window.WITHME_CONFIG = {
