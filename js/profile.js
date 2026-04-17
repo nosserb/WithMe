@@ -177,7 +177,7 @@ function renderFriendsList(items) {
 		const item = document.createElement("li");
 		item.className = "friend-item";
 		item.innerHTML = `
-			<a class="friend-item-link" href="/user.html?id=${encodeURIComponent(friend?.id || "")}">
+			<a class="friend-item-link" href="user.html?id=${encodeURIComponent(friend?.id || "")}">
 				<img src="${friend?.avatarUrl || PLACEHOLDER_AVATAR}" alt="Avatar ${friend?.username || "Utilisateur"}" />
 				<div>
 					<strong>${friend?.username || "Utilisateur"}</strong>
@@ -209,7 +209,7 @@ function renderIncomingRequests(items) {
 		const item = document.createElement("li");
 		item.className = "friend-item";
 		item.innerHTML = `
-			<a class="friend-item-link" href="/user.html?id=${encodeURIComponent(request?.userId || "")}">
+			<a class="friend-item-link" href="user.html?id=${encodeURIComponent(request?.userId || "")}">
 				<img src="${request?.avatarUrl || PLACEHOLDER_AVATAR}" alt="Avatar ${request?.username || "Utilisateur"}" />
 				<div>
 					<strong>${request?.username || "Utilisateur"}</strong>
@@ -242,7 +242,7 @@ function renderOutgoingRequests(items) {
 		const item = document.createElement("li");
 		item.className = "friend-item";
 		item.innerHTML = `
-			<a class="friend-item-link" href="/user.html?id=${encodeURIComponent(request?.userId || "")}">
+			<a class="friend-item-link" href="user.html?id=${encodeURIComponent(request?.userId || "")}">
 				<img src="${request?.avatarUrl || PLACEHOLDER_AVATAR}" alt="Avatar ${request?.username || "Utilisateur"}" />
 				<div>
 					<strong>${request?.username || "Utilisateur"}</strong>

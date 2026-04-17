@@ -132,7 +132,7 @@ function renderArtist(artist, topTracks) {
 	const genres = artist.genres?.join(", ") || "Non fourni par Spotify";
 	const tracksHtml = (topTracks || []).slice(0, 5).map((track) => {
 		const artists = (track.artists || []).map((a) => a.name).join(", ");
-		return `<li><a class=\"inline-link\" href=\"/track.html?id=${encodeURIComponent(track.id)}\">${track.name}</a> · ${artists}</li>`;
+		return `<li><a class=\"inline-link\" href=\"track.html?id=${encodeURIComponent(track.id)}\">${track.name}</a> · ${artists}</li>`;
 	}).join("");
 	const hasMissingStats = followersValue <= 0 || popularityValue <= 0 || !(artist.genres?.length);
 
