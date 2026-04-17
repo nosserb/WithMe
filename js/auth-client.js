@@ -131,14 +131,6 @@
 	}
 
 	async function apiRequest(path, options = {}) {
-		const isGithubPages = /(^|\.)github\.io$/i.test(window.location.hostname || "");
-		const apiBase = getApiBaseUrl();
-		if (isGithubPages && !apiBase) {
-			const error = new Error("backend_not_configured");
-			error.status = 0;
-			throw error;
-		}
-
 		const token = getStoredToken();
 		const headers = {
 			"Content-Type": "application/json",
