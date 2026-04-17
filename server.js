@@ -151,7 +151,7 @@ function privateMessageAll(sql, params = []) {
 }
 
 async function initConcertChatDb() {
-  await run(`
+  await chatRun(`
     CREATE TABLE IF NOT EXISTS concert_messages (
       id SERIAL PRIMARY KEY,
       concert_key TEXT NOT NULL,
@@ -162,8 +162,8 @@ async function initConcertChatDb() {
     )
   `);
 
-  await run(`CREATE INDEX IF NOT EXISTS idx_concert_messages_key ON concert_messages(concert_key)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_concert_messages_created ON concert_messages(created_at)`);
+  await chatRun(`CREATE INDEX IF NOT EXISTS idx_concert_messages_key ON concert_messages(concert_key)`);
+  await chatRun(`CREATE INDEX IF NOT EXISTS idx_concert_messages_created ON concert_messages(created_at)`);
 }
 
 async function initPrivateMessageDb() {
@@ -198,7 +198,7 @@ function normalizeConcertKey(rawValue) {
 }
 
 async function ensureDefaultConcertDiscussion(concertKey) {
-  const existing = await get(
+  const existing = await chatGet(
     `SELECT id FROM concert_messages WHERE concert_key = ? LIMIT 1`,
     [concertKey]
   );
@@ -2053,7 +2053,7 @@ app.get("/api/concert-chat/:concertKey/messages", authMiddleware, async (req, re
 
     await ensureDefaultConcertDiscussion(concertKey);
 
-    const rows = await all(
+    const rows = await chatAll(
       `
         SELECT id, concert_key, user_id, username, message, created_at
         FROM concert_messages
@@ -2135,7 +2135,7 @@ app.get("/api/concert-chat/messages", authMiddleware, async (req, res) => {
 
     await ensureDefaultConcertDiscussion(concertKey);
 
-    const rows = await all(
+    const rows = await chatAll(
       `
         SELECT id, concert_key, user_id, username, message, created_at
         FROM concert_messages
