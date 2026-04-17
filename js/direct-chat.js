@@ -47,6 +47,18 @@ function initTheme() {
 	applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
 }
 
+function getApiBaseUrl() {
+	return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function apiUrl(path) {
+	const base = getApiBaseUrl();
+	if (!base) {
+		return path;
+	}
+	return `${base}${path}`;
+}
+
 function setStatus(message, isError = false) {
 	dmChatStatus.textContent = message;
 	dmChatStatus.style.color = isError ? "#d65050" : "var(--muted)";
@@ -224,7 +236,7 @@ async function loadOrCreateLocalIdentityKeys() {
 }
 
 async function publishMyPublicKey(publicKeyJwkText) {
-	const remoteKey = await fetchJsonWithAuth(`/api/e2ee/public-key/${encodeURIComponent(currentUserId)}`, {
+	const remoteKey = await fetchJsonWithAuth(apiUrl(`/api/e2ee/public-key/${encodeURIComponent(currentUserId)}`), {
 		method: "GET"
 	}).catch((error) => {
 		if (String(error?.message || "") === "public_key_not_found") {
@@ -237,7 +249,7 @@ async function publishMyPublicKey(publicKeyJwkText) {
 		return;
 	}
 
-	await fetchJsonWithAuth("/api/e2ee/public-key", {
+	await fetchJsonWithAuth(apiUrl("/api/e2ee/public-key"), {
 		method: "PUT",
 		headers: {
 			"Content-Type": "application/json"
@@ -247,7 +259,7 @@ async function publishMyPublicKey(publicKeyJwkText) {
 }
 
 async function loadTargetPublicKey() {
-	const payload = await fetchJsonWithAuth(`/api/e2ee/public-key/${encodeURIComponent(activeTargetUserId)}`, {
+	const payload = await fetchJsonWithAuth(apiUrl(`/api/e2ee/public-key/${encodeURIComponent(activeTargetUserId)}`), {
 		method: "GET"
 	});
 	const targetJwk = JSON.parse(String(payload?.publicKeyJwk || ""));
@@ -265,7 +277,7 @@ async function tryLoadExistingConversationKey() {
 		return e2eeSession.conversationKey;
 	}
 
-	const payload = await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`, {
+	const payload = await fetchJsonWithAuth(apiUrl(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`), {
 		method: "GET"
 	});
 
@@ -316,7 +328,7 @@ async function ensureConversationKeyForSend() {
 		{ name: "RSA-OAEP" }
 	);
 
-	await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`, {
+	await fetchJsonWithAuth(apiUrl(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/e2ee-key`), {
 		method: "PUT",
 		headers: {
 			"Content-Type": "application/json"
@@ -524,7 +536,7 @@ function renderMessages(items) {
 }
 
 async function fetchPrivateMessages() {
-	const payload = await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages?limit=120`, {
+	const payload = await fetchJsonWithAuth(apiUrl(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages?limit=120`), {
 		method: "GET"
 	});
 	return payload?.items || [];
@@ -532,7 +544,7 @@ async function fetchPrivateMessages() {
 
 async function sendPrivateMessage(message) {
 	const encrypted = await encryptPrivateMessage(message);
-	await fetchJsonWithAuth(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages`, {
+	await fetchJsonWithAuth(apiUrl(`/api/private-chat/${encodeURIComponent(activeTargetUserId)}/messages`), {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"
