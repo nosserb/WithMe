@@ -4,13 +4,13 @@
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link rel="icon" type="image/svg+xml" href="img/spotifylogoN.svg" />
-	<title>WithMe - Chat concert</title>
+	<title>WithMe - Concerts</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="style.css?v=20260418-mobile-concert1" />
 </head>
-<body>
+<body class="concert-mobile-page">
 	<header class="page-header">
 		<div class="page-header-left">
 			<div class="brand-inline">
@@ -20,13 +20,13 @@
 			<nav class="page-nav" aria-label="Navigation principale">
 				<a href="index.html">Dashboard</a>
 				<a href="search.html">Recherche</a>
-				<a class="mobile-only-nav" href="concert-mobile.html">Concerts</a>
+				<a class="mobile-only-nav active" href="concert-mobile.html">Concerts</a>
 				<a href="profile.html">Profil</a>
 			</nav>
 		</div>
 		<div class="header-meta">
-			<h1 id="chatTitle">Discussion de concert</h1>
-			<p class="header-sub">Echange avec la commu autour de ce concert.</p>
+			<h1>Concerts</h1>
+			<p class="header-sub">Selection rapide des prochains concerts.</p>
 		</div>
 		<div class="header-actions">
 			<button id="themeToggle" class="theme-toggle-btn" type="button">Sombre</button>
@@ -34,21 +34,23 @@
 		</div>
 	</header>
 
-	<main class="card chat-page dm-chat-shell">
-		<div class="dm-chat-topbar">
-			<div id="chatStatus" class="search-status">Chargement du chat...</div>
-		</div>
-		<section id="chatMessages" class="chat-messages dm-chat-messages dm-thread" aria-live="polite"></section>
+	<main class="card page-main mobile-concert-page-main">
+		<section class="search-hero mobile-concert-hero">
+			<div>
+				<h2>Prochains concerts</h2>
+				<p id="mobileConcertStatus">Chargement des evenements...</p>
+			</div>
+		</section>
 
-		<form id="chatForm" class="chat-form dm-compose" novalidate>
-			<input id="chatInput" class="search-input" type="text" maxlength="500" placeholder="Ecris un message pour la discussion de concert" required />
-			<button id="chatSendBtn" class="login-top-btn" type="submit">Envoyer</button>
-		</form>
+		<ul id="mobileConcertList" class="ranking-list mobile-concert-list">
+			<li><span>...</span><strong>Chargement en cours</strong><em>Patiente un instant</em></li>
+		</ul>
 	</main>
 
-	<script src="js/spotify-config.js?v=20260417-cachefix1"></script>
-	<script src="js/auth-client.js?v=20260417-cachefix1"></script>
-	<script src="js/header-auth.js?v=20260417-cachefix1"></script>
-	<script src="js/concert-chat.js?v=20260417-cachefix1"></script>
+	<script src="js/spotify-config.js?v=20260418-mobile-concert1"></script>
+	<script src="js/auth-client.js?v=20260418-mobile-concert1"></script>
+	<script src="js/header-auth.js?v=20260418-mobile-concert1"></script>
+	<script src="js/spotify-auth.js?v=20260418-mobile-concert1"></script>
+	<script src="js/concert-mobile.js?v=20260418-mobile-concert1"></script>
 </body>
 </html>

@@ -277,6 +277,10 @@ body {
 	transform: translateY(1px);
 }
 
+.mobile-only-nav {
+	display: none;
+}
+
 .page-header h1 {
 	margin: 0;
 	font-size: clamp(1.05rem, 1.6vw, 1.25rem);
@@ -1581,6 +1585,12 @@ body.dark-mode .dm-delete-btn {
 		font-size: 0.8rem;
 	}
 
+	.page-nav a.mobile-only-nav {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
 	.header-actions {
 		align-self: flex-start;
 		margin-left: auto;
@@ -1639,6 +1649,26 @@ body.dark-mode .dm-delete-btn {
 		height: 100dvh;
 		overflow: hidden;
 		padding: 10px 10px 92px;
+	}
+
+	body.dashboard-page .header-profile-link {
+		width: auto;
+		max-width: none;
+		padding: 4px;
+		min-width: 0;
+		border-radius: 999px;
+	}
+
+	body.dashboard-page .header-profile-copy {
+		display: none;
+	}
+
+	body.dashboard-page .header-meta {
+		display: none;
+	}
+
+	body.dashboard-page #greetLine {
+		display: none;
 	}
 
 	body.dashboard-page .app-shell {
@@ -1764,6 +1794,15 @@ body.dark-mode .dm-delete-btn {
 	.page-nav a {
 		padding: 9px 8px;
 		font-size: 0.76rem;
+	}
+
+	body.dashboard-page .header-profile-link {
+		padding: 3px;
+	}
+
+	body.dashboard-page .header-profile-avatar {
+		width: 36px;
+		height: 36px;
 	}
 
 	.card,
