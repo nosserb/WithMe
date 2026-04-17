@@ -33,6 +33,18 @@ function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
 }
 
+function getApiBaseUrl() {
+	return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function apiUrl(path) {
+	const base = getApiBaseUrl();
+	if (!base) {
+		return path;
+	}
+	return `${base}${path}`;
+}
+
 function normalizeArtistKey(value) {
 	return String(value || "").trim().toLowerCase();
 }
@@ -287,7 +299,7 @@ async function fetchUserPage() {
 		limit: String(searchSession.pageSize)
 	});
 
-	const response = await fetch(`/api/users/search?${params.toString()}`, {
+	const response = await fetch(apiUrl(`/api/users/search?${params.toString()}`), {
 		headers: {
 			Authorization: `Bearer ${token}`
 		}
@@ -488,8 +500,8 @@ async function runSearch(options = {}) {
 	}
 
 	const rawType = searchType.value;
-	const wantsSpotify = rawType.includes("track") || rawType.includes("artist");
-	const wantsUsers = rawType.includes("user");
+	const wantsSpotify = rawType === "track" || rawType === "artist" || rawType === "track,artist";
+	const wantsUsers = rawType === "user" || rawType === "track,artist,user";
 
 	let token = "";
 	if (wantsSpotify && SPOTIFY_CLIENT_ID) {
