@@ -10,7 +10,7 @@
 	<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="style.css?v=20260329-dm1" />
 </head>
-<body>
+<body class="dashboard-page">
 	<header class="page-header">
 		<div class="page-header-left">
 			<a id="headerProfileLink" class="header-profile-link" href="profile.html" aria-label="Ouvrir mon profil">
@@ -75,13 +75,31 @@
 			<header class="top-bar">
 				<div>
 					<p id="greetLine" class="greet">Bonjour</p>
-					<h2>Ta bibliotheque</h2>
+					<h2>Tableau de bord musical</h2>
 				</div>
 				<div class="top-actions">
 					<button class="icon-btn" aria-label="Notifications">i</button>
 					<button class="avatar-btn" aria-label="Profile">AL</button>
 				</div>
 			</header>
+
+			<section class="overview-strip" aria-label="Vue d'ensemble">
+				<article class="overview-card">
+					<p>Ecoutes cette semaine</p>
+					<strong>14 h 32</strong>
+					<small>+18% par rapport a la semaine derniere</small>
+				</article>
+				<article class="overview-card">
+					<p>Nouveaux artistes</p>
+					<strong>9</strong>
+					<small>Decouverts via ta recherche</small>
+				</article>
+				<article class="overview-card overview-card-cta">
+					<p>Action rapide</p>
+					<strong>Lancer un mix Focus</strong>
+					<a href="search.html">Trouver une playlist</a>
+				</article>
+			</section>
 
 			<section class="content-columns">
 				<div class="left-feed">

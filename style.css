@@ -28,6 +28,33 @@
 	--side-track-border: #d5d9e8;
 }
 
+body.dashboard-page {
+	--bg: #e9edf1;
+	--surface: #ffffff;
+	--surface-soft: #f4f7fa;
+	--text: #142033;
+	--muted: #5f6e86;
+	--line: #dbe3ee;
+	--primary: #0f6b72;
+	--primary-dark: #0a4f58;
+	--progress-track: #ced9e7;
+	--bg-glow-1: rgba(68, 156, 171, 0.22);
+	--bg-glow-2: rgba(255, 188, 122, 0.2);
+	--card-shadow: 0 20px 44px rgba(16, 42, 69, 0.11);
+	--brand-grad-1: #168f9a;
+	--brand-grad-2: #0e5f78;
+	--eyebrow: #0d5e78;
+	--nav-active-bg: #e7f2f4;
+	--nav-active-text: #0f4f59;
+	--sidebar-grad-1: #fcfefe;
+	--sidebar-grad-2: #f2f7fb;
+	--panel-grad-1: #ffffff;
+	--panel-grad-2: #f7fbff;
+	--control-soft: #eef4f8;
+	--side-track-bg: #f4f9fc;
+	--side-track-border: #c8d7e5;
+}
+
 body.dark-mode {
 	--bg: #1e1f22;
 	--surface: #2b2d31;
@@ -438,6 +465,64 @@ body {
 	display: grid;
 	grid-template-columns: minmax(0, 1.25fr) minmax(250px, 0.75fr);
 	gap: 14px;
+}
+
+.overview-strip {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.overview-card {
+	padding: 14px;
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	background: linear-gradient(155deg, var(--surface), var(--surface-soft));
+	box-shadow: 0 8px 20px rgba(20, 36, 56, 0.06);
+	display: grid;
+	gap: 6px;
+	animation: cardFade 420ms ease both;
+}
+
+.overview-card p {
+	margin: 0;
+	font-size: 0.79rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	font-weight: 700;
+	color: var(--muted);
+}
+
+.overview-card strong {
+	font-size: clamp(1rem, 1.9vw, 1.4rem);
+	line-height: 1.1;
+}
+
+.overview-card small {
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
+.overview-card-cta {
+	background: linear-gradient(135deg, rgba(15, 107, 114, 0.15), rgba(14, 95, 120, 0.08));
+	border-color: rgba(15, 107, 114, 0.35);
+}
+
+.overview-card-cta a {
+	width: fit-content;
+	margin-top: 4px;
+	padding: 7px 11px;
+	border-radius: 999px;
+	text-decoration: none;
+	font-size: 0.8rem;
+	font-weight: 700;
+	background: var(--primary);
+	color: var(--inverse-text);
+}
+
+.overview-card-cta a:hover {
+	background: var(--primary-dark);
 }
 
 .quick-grid {
@@ -861,8 +946,18 @@ body {
 		grid-template-columns: 220px minmax(0, 1fr);
 	}
 
+	.overview-strip {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
 	.artist-panel {
 		display: none;
+	}
+}
+
+@media (max-width: 860px) {
+	.overview-strip {
+		grid-template-columns: 1fr;
 	}
 }
 
