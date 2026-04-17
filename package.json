@@ -4,6 +4,9 @@
   "private": true,
   "description": "WithMe app with local account auth and Spotify linking",
   "main": "server.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev:stop": "sh -c 'fuser -k 3000/tcp 3443/tcp 2>/dev/null || true'",
@@ -16,6 +19,7 @@
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
     "firebase-admin": "^13.7.0",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "sqlite3": "^5.1.7"
   }
 }
