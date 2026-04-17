@@ -1001,7 +1001,7 @@ async function hydrateUsersFromFirestore() {
   }
 }
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "5mb" }));
 
 app.use((req, res, next) => {
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -1028,6 +1028,12 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const origin = String(req.headers.origin || "").trim();
   const requestedPrivateNetwork = String(req.headers["access-control-request-private-network"] || "").toLowerCase() === "true";
+  
+  // Log for debugging CORS
+  if (req.method === "OPTIONS" || req.path.startsWith("/api/")) {
+    console.log(`[CORS] ${req.method} ${req.path} - Origin: ${origin || "(none)"}`);
+  }
+  
   if (origin && ALLOWED_CORS_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
@@ -1037,6 +1043,8 @@ app.use((req, res, next) => {
     if (requestedPrivateNetwork) {
       res.setHeader("Access-Control-Allow-Private-Network", "true");
     }
+  } else if (origin) {
+    console.warn(`[CORS] Origin not allowed: ${origin}`);
   }
 
   if (req.method === "OPTIONS") {
