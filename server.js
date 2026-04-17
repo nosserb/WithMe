@@ -719,6 +719,7 @@ async function syncUsersToFirestore() {
           COALESCE(CAST(id AS INTEGER), rowid) AS id,
           username,
           email,
+          password_hash,
           bio,
           spotify_id,
           spotify_display_name,
@@ -739,6 +740,108 @@ async function syncUsersToFirestore() {
     return true;
   } catch (error) {
     console.error("Firestore users sync failed", error);
+    return false;
+  }
+}
+
+function normalizeFirestoreUserRow(row) {
+  const id = Number(row?.id || 0);
+  if (!Number.isFinite(id) || id <= 0) {
+    return null;
+  }
+
+  const username = String(row?.username || "").trim();
+  const email = String(row?.email || "").trim().toLowerCase();
+  const passwordHash = String(row?.password_hash || "").trim();
+
+  if (!username || !email || !passwordHash) {
+    return null;
+  }
+
+  return {
+    id,
+    username,
+    email,
+    passwordHash,
+    bio: String(row?.bio || "").trim(),
+    spotifyId: String(row?.spotify_id || "").trim(),
+    spotifyDisplayName: String(row?.spotify_display_name || "").trim(),
+    createdAt: Number(row?.created_at || 0) || Date.now(),
+    updatedAt: Number(row?.updated_at || 0) || Date.now()
+  };
+}
+
+async function hydrateUsersFromFirestore() {
+  if (!hasFirestoreConfig()) {
+    return false;
+  }
+
+  try {
+    const payload = await fetchFirestoreTables([
+      { collection: "users", idField: "id" }
+    ]);
+    const rows = Array.isArray(payload?.users) ? payload.users : [];
+
+    let importedCount = 0;
+    for (const rawRow of rows) {
+      const user = normalizeFirestoreUserRow(rawRow);
+      if (!user) {
+        continue;
+      }
+
+      const existingById = await get(`SELECT id FROM users WHERE id = ?`, [user.id]);
+      if (existingById) {
+        await run(
+          `UPDATE users
+           SET username = ?,
+               email = ?,
+               password_hash = ?,
+               bio = ?,
+               spotify_id = ?,
+               spotify_display_name = ?,
+               created_at = ?,
+               updated_at = ?
+           WHERE id = ?`,
+          [
+            user.username,
+            user.email,
+            user.passwordHash,
+            user.bio,
+            user.spotifyId,
+            user.spotifyDisplayName,
+            user.createdAt,
+            user.updatedAt,
+            user.id
+          ]
+        );
+      } else {
+        await run(
+          `INSERT INTO users
+            (id, username, email, password_hash, bio, spotify_id, spotify_display_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            user.id,
+            user.username,
+            user.email,
+            user.passwordHash,
+            user.bio,
+            user.spotifyId,
+            user.spotifyDisplayName,
+            user.createdAt,
+            user.updatedAt
+          ]
+        );
+      }
+
+      importedCount += 1;
+    }
+
+    if (importedCount > 0) {
+      console.log(`Hydrated ${importedCount} user(s) from Firestore`);
+    }
+    return true;
+  } catch (error) {
+    console.error("Firestore users hydration failed", error);
     return false;
   }
 }
@@ -850,10 +953,22 @@ app.post("/api/auth/login", async (req, res) => {
       return;
     }
 
-    const userRow = await get(
+    let userRow = await get(
       `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = ?`,
       [email]
     );
+
+    // In hosted mode with ephemeral disk, local SQLite may start empty.
+    // If that happens, rehydrate users from Firestore then retry once.
+    if (!userRow && hasFirestoreConfig()) {
+      const hydrated = await hydrateUsersFromFirestore();
+      if (hydrated) {
+        userRow = await get(
+          `SELECT id, username, email, bio, password_hash, spotify_id, spotify_display_name FROM users WHERE email = ?`,
+          [email]
+        );
+      }
+    }
 
     if (!userRow) {
       res.status(401).json({ error: "invalid_credentials" });
@@ -2182,7 +2297,9 @@ function startHostedHttpServer() {
 }
 
 Promise.all([initDb(), initConcertChatDb(), initPrivateMessageDb()])
-  .then(() => {
+  .then(async () => {
+    await hydrateUsersFromFirestore();
+
     const forceHostedMode = String(process.env.WITHME_DEPLOY_MODE || "").trim().toLowerCase() === "hosted";
 
     if (forceHostedMode) {

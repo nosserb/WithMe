@@ -148,6 +148,13 @@
 			gap: 8px;
 		}
 
+		.music-provider-row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+			margin-top: 8px;
+		}
+
 		.back-link {
 			margin-top: 10px;
 			background: #111217;
@@ -193,6 +200,10 @@
 			<h2 class="step-title">Etape 2 · Connexion Spotify</h2>
 			<p id="withMeState">Compte WithMe non connecte.</p>
 			<button id="spotifyConnectBtn" type="button" disabled>Lier mon compte Spotify</button>
+			<div class="music-provider-row">
+				<button type="button" class="secondary" disabled aria-disabled="true" title="Bientot disponible">Sync Deezer (bientot)</button>
+				<button type="button" class="secondary" disabled aria-disabled="true" title="Bientot disponible">Sync Amazon Music (bientot)</button>
+			</div>
 		</div>
 
 		<p id="statusText" class="status" aria-live="polite"></p>
