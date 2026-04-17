@@ -34,6 +34,18 @@ function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
 }
 
+function getApiBaseUrl() {
+	return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function apiUrl(path) {
+	const base = getApiBaseUrl();
+	if (!base) {
+		return path;
+	}
+	return `${base}${path}`;
+}
+
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
@@ -175,7 +187,7 @@ async function fetchPublicUserProfile(userId) {
 		throw new Error("auth_required");
 	}
 
-	const response = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+	const response = await fetch(apiUrl(`/api/users/${encodeURIComponent(userId)}`), {
 		headers: {
 			Authorization: `Bearer ${token}`
 		}

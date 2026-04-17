@@ -1218,7 +1218,7 @@ app.get("/api/users/:id", authMiddleware, async (req, res) => {
       return;
     }
 
-    const row = await get(
+    let row = await get(
       `
         SELECT id, username, email, bio, spotify_id, spotify_display_name,
                avatar_blob, avatar_mime, banner_blob, banner_mime
@@ -1227,6 +1227,21 @@ app.get("/api/users/:id", authMiddleware, async (req, res) => {
       `,
       [userId]
     );
+
+    if (!row && hasFirestoreConfig()) {
+      const hydrated = await hydrateUsersFromFirestore();
+      if (hydrated) {
+        row = await get(
+          `
+            SELECT id, username, email, bio, spotify_id, spotify_display_name,
+                   avatar_blob, avatar_mime, banner_blob, banner_mime
+            FROM users
+            WHERE id = ?
+          `,
+          [userId]
+        );
+      }
+    }
 
     if (!row) {
       res.status(404).json({ error: "user_not_found" });
