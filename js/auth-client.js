@@ -4,11 +4,7 @@
 
 	function getApiBaseUrl() {
 		const configured = String(window.WITHME_CONFIG?.apiBaseUrl || "").trim();
-		const isGithubPages = /(^|\.)github\.io$/i.test(window.location.hostname || "");
-		if (isGithubPages && /^https:\/\/127\.0\.0\.1:3443\b/i.test(configured)) {
-			return "https://localhost:3443";
-		}
-		return configured;
+		return configured.replace(/\/+$/, "");
 	}
 
 	function apiUrl(path) {
@@ -135,6 +131,14 @@
 	}
 
 	async function apiRequest(path, options = {}) {
+		const isGithubPages = /(^|\.)github\.io$/i.test(window.location.hostname || "");
+		const apiBase = getApiBaseUrl();
+		if (isGithubPages && !apiBase) {
+			const error = new Error("backend_not_configured");
+			error.status = 0;
+			throw error;
+		}
+
 		const token = getStoredToken();
 		const headers = {
 			"Content-Type": "application/json",

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: withme-backend
+    runtime: node
+    plan: free
+    autoDeploy: true
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WITHME_DEPLOY_MODE
+        value: hosted
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://nosserb.github.io
+      - key: FIREBASE_PROJECT_ID
+        value: withme-aa73b
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

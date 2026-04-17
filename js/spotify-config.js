@@ -1,4 +1,54 @@
 const WITHME_IS_GITHUB_PAGES = /(^|\.)github\.io$/i.test(window.location.hostname || "");
+const WITHME_API_OVERRIDE_KEY = "WithMe-api-base-url";
+
+function normalizeApiBaseUrl(rawUrl) {
+	const value = String(rawUrl || "").trim();
+	if (!value) {
+		return "";
+	}
+	return value.replace(/\/+$/, "");
+}
+
+function getApiBaseFromQuery() {
+	try {
+		const params = new URLSearchParams(window.location.search || "");
+		const fromQuery = normalizeApiBaseUrl(params.get("apiBaseUrl") || params.get("api") || "");
+		if (!fromQuery) {
+			return "";
+		}
+		localStorage.setItem(WITHME_API_OVERRIDE_KEY, fromQuery);
+		return fromQuery;
+	} catch (e) {
+		return "";
+	}
+}
+
+function getStoredApiBaseUrl() {
+	try {
+		return normalizeApiBaseUrl(localStorage.getItem(WITHME_API_OVERRIDE_KEY) || "");
+	} catch (e) {
+		return "";
+	}
+}
+
+function resolveApiBaseUrl() {
+	const fromQuery = getApiBaseFromQuery();
+	if (fromQuery) {
+		return fromQuery;
+	}
+
+	const fromGlobal = normalizeApiBaseUrl(window.WITHME_API_BASE_URL || "");
+	if (fromGlobal) {
+		return fromGlobal;
+	}
+
+	const fromStorage = getStoredApiBaseUrl();
+	if (fromStorage) {
+		return fromStorage;
+	}
+
+	return "";
+}
 
 window.WITHME_CONFIG = {
 	spotifyClientId: "1418bd40adb94fc296ae25dbf93c7372",
@@ -6,7 +56,7 @@ window.WITHME_CONFIG = {
 	redirectUri: "https://nosserb.github.io/WithMe/login.html",
 	localRedirectUri: "https://nosserb.github.io/WithMe/login.html",
 	postLoginRedirect: "https://nosserb.github.io/WithMe/index.html",
-	apiBaseUrl: WITHME_IS_GITHUB_PAGES ? "https://localhost:3443" : "",
+	apiBaseUrl: resolveApiBaseUrl(),
 	TicketmasterKey: "eD59GweBRt9SXEpsiPs87U6RJGHw0CL8",
 	firebase: {
 		apiKey: "AIzaSyBQL4v0qvm-784ptWrnzz_lVeeeEhdqf3k",
@@ -16,6 +66,31 @@ window.WITHME_CONFIG = {
 		messagingSenderId: "912298983992",
 		appId: "1:912298983992:web:ffc6ffeb3e17a904655ccd",
 		measurementId: "G-P0FZTMXYG8"
+	}
+};
+
+window.WithMeRuntimeConfig = {
+	getApiBaseUrl() {
+		return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim();
+	},
+	setApiBaseUrl(url) {
+		const normalized = normalizeApiBaseUrl(url);
+		if (!normalized) {
+			return false;
+		}
+		try {
+			localStorage.setItem(WITHME_API_OVERRIDE_KEY, normalized);
+		} catch (e) {
+			return false;
+		}
+		window.WITHME_CONFIG.apiBaseUrl = normalized;
+		return true;
+	},
+	clearApiBaseUrl() {
+		try {
+			localStorage.removeItem(WITHME_API_OVERRIDE_KEY);
+		} catch (e) {}
+		window.WITHME_CONFIG.apiBaseUrl = "";
 	}
 };
 

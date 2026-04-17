@@ -19,11 +19,16 @@ const app = express();
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const CANONICAL_HOST = process.env.APP_HOST || "127.0.0.1";
+const EXTRA_CORS_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
 const ALLOWED_CORS_ORIGINS = new Set([
   `https://${CANONICAL_HOST}:${HTTPS_PORT}`,
   `https://localhost:${HTTPS_PORT}`,
   `https://127.0.0.1:${HTTPS_PORT}`,
-  "https://nosserb.github.io"
+  "https://nosserb.github.io",
+  ...EXTRA_CORS_ORIGINS
 ]);
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || path.join(__dirname, "certs", "localhost-key.pem");
 const TLS_CERT_PATH = process.env.TLS_CERT_PATH || path.join(__dirname, "certs", "localhost-cert.pem");
@@ -2151,13 +2156,34 @@ function startHttpRedirectServer() {
   });
 }
 
+function startHostedHttpServer() {
+  const hostedPort = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
+  const hostedHost = process.env.HOST || "0.0.0.0";
+
+  app.listen(hostedPort, hostedHost, () => {
+    console.log(`WithMe hosted HTTP server listening on http://${hostedHost}:${hostedPort}`);
+  });
+}
+
 Promise.all([initDb(), initConcertChatDb(), initPrivateMessageDb()])
   .then(() => {
-    const httpsOptions = createHttpsOptions();
-    https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
-      console.log(`WithMe HTTPS server listening on https://localhost:${HTTPS_PORT}`);
-    });
-    startHttpRedirectServer();
+    const forceHostedMode = String(process.env.WITHME_DEPLOY_MODE || "").trim().toLowerCase() === "hosted";
+
+    if (forceHostedMode) {
+      startHostedHttpServer();
+      return;
+    }
+
+    try {
+      const httpsOptions = createHttpsOptions();
+      https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
+        console.log(`WithMe HTTPS server listening on https://localhost:${HTTPS_PORT}`);
+      });
+      startHttpRedirectServer();
+    } catch (error) {
+      console.warn("TLS cert not available, starting hosted HTTP mode.");
+      startHostedHttpServer();
+    }
   })
   .catch((error) => {
     console.error("Failed to initialize database", error);

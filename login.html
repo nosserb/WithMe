@@ -254,6 +254,17 @@
 			statusText.classList.toggle("error", Boolean(isError));
 		}
 
+		function getAuthErrorMessage(error, fallbackMessage) {
+			const code = String(error?.message || "").trim();
+			if (code === "backend_not_configured") {
+				return "Backend non configure pour GitHub Pages. Ajoute ?apiBaseUrl=https://ton-backend.exemple.com a l'URL puis recharge.";
+			}
+			if (code === "backend_unreachable") {
+				return "Backend inaccessible. Verifie l'URL API configuree et le CORS du serveur.";
+			}
+			return fallbackMessage;
+		}
+
 		function refreshWithMeState() {
 			if (!currentUser) {
 				withMeState.textContent = "Compte WithMe non connecte.";
@@ -449,7 +460,10 @@
 				refreshWithMeState();
 				setStatus("Compte WithMe cree. Tu peux maintenant lier Spotify.");
 			} catch (error) {
-				setStatus("Impossible de creer le compte (pseudo/email deja pris ou infos invalides).", true);
+				setStatus(
+					getAuthErrorMessage(error, "Impossible de creer le compte (pseudo/email deja pris ou infos invalides)."),
+					true
+				);
 			}
 		});
 
@@ -460,7 +474,7 @@
 				refreshWithMeState();
 				setStatus("Compte WithMe connecte. Tu peux lier Spotify.");
 			} catch (error) {
-				setStatus("Email ou mot de passe invalide.", true);
+				setStatus(getAuthErrorMessage(error, "Email ou mot de passe invalide."), true);
 			}
 		});
 
