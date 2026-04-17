@@ -822,7 +822,7 @@ function renderRecentConcerts(concerts) {
 
 		const chatLink = document.createElement("a");
 		chatLink.className = "detail-link";
-		chatLink.href = `/concert-chat.html?concertKey=${encodeURIComponent(concert.chatKey)}&artist=${encodeURIComponent(concert.artist)}`;
+		chatLink.href = `concert-chat.html?concertKey=${encodeURIComponent(concert.chatKey)}&artist=${encodeURIComponent(concert.artist)}`;
 		chatLink.textContent = "Ouvrir le chat";
 		li.appendChild(chatLink);
 

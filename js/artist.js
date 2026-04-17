@@ -296,7 +296,7 @@ async function fetchConcerts(artistName) {
 				.join("|")
 				.slice(0, 140);
 			const chatKey = eventId ? `tm:${eventId}` : `local:${fallbackKey || "concert"}`;
-			const chatUrl = `/concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
+			const chatUrl = `concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
 
 			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span> <a class="inline-link" href="${chatUrl}">Ouvrir le chat</a>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
 			concertList.appendChild(li);
