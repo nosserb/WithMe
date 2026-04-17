@@ -36,6 +36,7 @@
 	<main class="card profile-page">
 		<section class="profile-hero" id="profileHero">
 			<div class="profile-hero-banner" id="profileBanner"></div>
+			<video id="profileBannerVideo" class="profile-banner-video" muted autoplay loop style="display: none;"></video>
 			<div class="profile-hero-meta">
 				<img id="profileAvatar" class="profile-avatar" src="/img/artist-focus.svg" alt="Avatar profil" />
 				<div>
@@ -46,7 +47,7 @@
 			<div class="profile-hero-media-actions">
 				<button id="changeAvatarBtn" class="secondary-pill" type="button">Ajouter une PDP</button>
 				<button id="changeBannerBtn" class="secondary-pill" type="button">Ajouter une banniere</button>
-				<p class="profile-hint">Formats acceptes: JPG, PNG, WEBP, GIF (max 2 Mo par image).</p>
+			<p class="profile-hint">Formats acceptes: JPG, PNG, WEBP (max 350 Ko). Les GIF pour les bannieres seront convertis en video MP4 (max 5 Mo).</p>
 			</div>
 			<input id="avatarInput" class="sr-only-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
 			<input id="bannerInput" class="sr-only-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
@@ -89,9 +90,9 @@
 		</section>
 	</main>
 
-	<script src="js/spotify-config.js?v=20260401-authfix4"></script>
-	<script src="js/auth-client.js?v=20260401-authfix4"></script>
-	<script src="js/header-auth.js?v=20260401-authfix4"></script>
-	<script src="js/profile.js?v=20260329-profile-layout3"></script>
+	<script src="js/spotify-config.js?v=20260417-gif-to-mp4"></script>
+	<script src="js/auth-client.js?v=20260417-gif-to-mp4"></script>
+	<script src="js/header-auth.js?v=20260417-gif-to-mp4"></script>
+	<script src="js/profile.js?v=20260417-gif-to-mp4"></script>
 </body>
 </html>

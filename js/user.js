@@ -3,6 +3,7 @@ const userName = document.getElementById("userName");
 const userEmail = document.getElementById("userEmail");
 const userAvatar = document.getElementById("userAvatar");
 const userBanner = document.getElementById("userBanner");
+const userBannerVideo = document.getElementById("userBannerVideo");
 const userBio = document.getElementById("userBio");
 const userSpotifyState = document.getElementById("userSpotifyState");
 const friendActionBtn = document.getElementById("friendActionBtn");
@@ -77,9 +78,20 @@ function renderUserProfile(profile) {
 	userBio.textContent = bio;
 	userAvatar.src = avatarUrl;
 	userAvatar.alt = `Avatar de ${username}`;
-	userBanner.style.backgroundImage = bannerUrl
-		? `linear-gradient(120deg, rgba(18, 23, 38, 0.24), rgba(18, 23, 38, 0.05)), url('${bannerUrl}')`
-		: "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+	
+	// Handle banner as video or image
+	const isVideoData = bannerUrl && bannerUrl.startsWith("data:video/mp4");
+	if (isVideoData) {
+		userBanner.style.backgroundImage = "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+		userBannerVideo.src = bannerUrl;
+		userBannerVideo.style.display = "block";
+	} else {
+		userBannerVideo.style.display = "none";
+		userBannerVideo.src = "";
+		userBanner.style.backgroundImage = bannerUrl
+			? `linear-gradient(120deg, rgba(18, 23, 38, 0.24), rgba(18, 23, 38, 0.05)), url('${bannerUrl}')`
+			: "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+	}
 
 	if (profile?.spotifyLinked) {
 		const spotifyName = String(profile?.spotifyDisplayName || "").trim();

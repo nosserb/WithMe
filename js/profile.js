@@ -9,6 +9,7 @@ const profileDisplayName = document.getElementById("profileDisplayName");
 const profileDisplayEmail = document.getElementById("profileDisplayEmail");
 const profileAvatar = document.getElementById("profileAvatar");
 const profileBanner = document.getElementById("profileBanner");
+const profileBannerVideo = document.getElementById("profileBannerVideo");
 
 const avatarInput = document.getElementById("avatarInput");
 const bannerInput = document.getElementById("bannerInput");
@@ -90,9 +91,20 @@ function renderPreview(profile) {
 	profileDisplayName.textContent = username;
 	profileDisplayEmail.textContent = email;
 	profileAvatar.src = avatarUrl || PLACEHOLDER_AVATAR;
-	profileBanner.style.backgroundImage = bannerUrl
-		? `linear-gradient(120deg, rgba(18, 23, 38, 0.24), rgba(18, 23, 38, 0.05)), url('${bannerUrl}')`
-		: "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+	
+	// Handle banner as video or image
+	const isVideoData = bannerUrl && bannerUrl.startsWith("data:video/mp4");
+	if (isVideoData) {
+		profileBanner.style.backgroundImage = "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+		profileBannerVideo.src = bannerUrl;
+		profileBannerVideo.style.display = "block";
+	} else {
+		profileBannerVideo.style.display = "none";
+		profileBannerVideo.src = "";
+		profileBanner.style.backgroundImage = bannerUrl
+			? `linear-gradient(120deg, rgba(18, 23, 38, 0.24), rgba(18, 23, 38, 0.05)), url('${bannerUrl}')`
+			: "linear-gradient(120deg, #8fcff8, #c7a9ff)";
+	}
 
 	profileUsername.value = username;
 	profileEmail.value = email;
@@ -113,25 +125,45 @@ async function handleImageInput(inputEl, target) {
 	if (!file) {
 		return;
 	}
-	if (file.size > 350 * 1024) {
-		setStatus("Image trop lourde (max 350 Ko).", true);
+	
+	const isGif = file.type === "image/gif";
+	const maxSize = 5 * 1024 * 1024; // GIFs can be larger since they'll be converted
+	
+	if (file.size > maxSize) {
+		setStatus(`${isGif ? "GIF" : "Image"} trop lourd(e) (max 5 Mo).`, true);
 		inputEl.value = "";
 		return;
 	}
 
 	try {
 		const dataUrl = await fileToDataUrl(file);
-		if (!/^data:image\//i.test(dataUrl)) {
-			setStatus("Format d'image invalide.", true);
-			return;
+		
+		// Check format
+		if (isGif) {
+			if (!/^data:image\/gif/i.test(dataUrl)) {
+				setStatus("Format GIF invalide.", true);
+				return;
+			}
+			// GIFs for banners will be converted to MP4 on server
+			if (target === "banner") {
+				setStatus("GIF detecte. Il sera converti en video MP4 sur le serveur pour economiser de l'espace.");
+			}
+		} else {
+			if (!/^data:image\//i.test(dataUrl)) {
+				setStatus("Format d'image invalide.", true);
+				return;
+			}
 		}
+		
 		if (target === "avatar") {
 			avatarDataUrlDraft = dataUrl;
 		} else {
 			bannerDataUrlDraft = dataUrl;
 		}
 		renderPreview(currentProfile || {});
-		setStatus("Image prete. Clique sur Enregistrer pour confirmer.");
+		setStatus(isGif && target === "banner" 
+			? "GIF pret. Clique sur Enregistrer pour confirmer (conversion en MP4 en cours)." 
+			: "Image prete. Clique sur Enregistrer pour confirmer.");
 	} catch (error) {
 		setStatus("Impossible de lire cette image.", true);
 	}
@@ -153,7 +185,9 @@ function parseProfileError(error) {
 		case "invalid_image_type":
 			return "Format image non supporte. Utilise JPG, PNG, WEBP ou GIF.";
 		case "image_too_large":
-			return "Image trop lourde. Maximum 350 Ko.";
+			return "Image trop lourde. Maximum 5 Mo (sera compresse si necessaire).";
+		case "video_too_large_after_compression":
+			return "Le GIF est trop long/complexe et ne peut pas etre converti en MP4 assez compresse.";
 		default:
 			return "Impossible de sauvegarder le profil.";
 	}

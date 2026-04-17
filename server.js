@@ -7,6 +7,9 @@ require("dotenv").config();
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3").verbose();
+const ffmpeg = require("fluent-ffmpeg");
+const ffmpegStatic = require("ffmpeg-static");
+const { exec } = require("child_process");
 const {
   hasFirestoreConfig,
   getFirestoreConfigError,
@@ -15,6 +18,8 @@ const {
   mirrorSqliteTables,
   fetchFirestoreTables
 } = require("./database/firestore");
+
+ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const app = express();
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
@@ -609,6 +614,105 @@ function decodeOptionalImageData(value) {
   return { blob, mime };
 }
 
+async function convertGifToMp4(gifBuffer) {
+  return new Promise((resolve, reject) => {
+    const tempGifPath = path.join(__dirname, `.tmp-${crypto.randomUUID()}.gif`);
+    const tempMp4Path = path.join(__dirname, `.tmp-${crypto.randomUUID()}.mp4`);
+    const tempMp4CompressedPath = path.join(__dirname, `.tmp-${crypto.randomUUID()}-compressed.mp4`);
+
+    try {
+      fs.writeFileSync(tempGifPath, gifBuffer);
+
+      ffmpeg(tempGifPath)
+        .outputOptions([
+          "-c:v libx264",
+          "-pix_fmt yuv420p",
+          "-crf 28",
+          "-preset fast",
+          "-movflags +faststart"
+        ])
+        .output(tempMp4Path)
+        .on("end", () => {
+          try {
+            let mp4Buffer = fs.readFileSync(tempMp4Path);
+            
+            // If MP4 is still too large, compress more aggressively
+            if (mp4Buffer.length > FIRESTORE_IMAGE_MAX_BYTES) {
+              console.warn(`MP4 size ${mp4Buffer.length} exceeds max, compressing further...`);
+              
+              // Re-encode with higher compression
+              ffmpeg(tempMp4Path)
+                .outputOptions([
+                  "-c:v libx264",
+                  "-pix_fmt yuv420p",
+                  "-crf 35",
+                  "-preset slower",
+                  "-movflags +faststart",
+                  "-b:v 300k"
+                ])
+                .output(tempMp4CompressedPath)
+                .on("end", () => {
+                  try {
+                    const compressedBuffer = fs.readFileSync(tempMp4CompressedPath);
+                    
+                    // Cleanup temp files
+                    [tempGifPath, tempMp4Path, tempMp4CompressedPath].forEach(f => {
+                      if (fs.existsSync(f)) fs.unlinkSync(f);
+                    });
+                    
+                    // Still too large, reject
+                    if (compressedBuffer.length > FIRESTORE_IMAGE_MAX_BYTES) {
+                      reject(new Error("video_too_large_after_compression"));
+                    } else {
+                      resolve({ blob: compressedBuffer, mime: "video/mp4", compressed: true });
+                    }
+                  } catch (err) {
+                    reject(err);
+                  }
+                })
+                .on("error", (err) => {
+                  [tempGifPath, tempMp4Path, tempMp4CompressedPath].forEach(f => {
+                    try {
+                      if (fs.existsSync(f)) fs.unlinkSync(f);
+                    } catch (e) {}
+                  });
+                  reject(err);
+                })
+                .run();
+            } else {
+              // Cleanup temp files
+              fs.unlinkSync(tempGifPath);
+              fs.unlinkSync(tempMp4Path);
+              resolve({ blob: mp4Buffer, mime: "video/mp4", compressed: false });
+            }
+          } catch (err) {
+            reject(err);
+          }
+        })
+        .on("error", (err) => {
+          try {
+            if (fs.existsSync(tempGifPath)) fs.unlinkSync(tempGifPath);
+            if (fs.existsSync(tempMp4Path)) fs.unlinkSync(tempMp4Path);
+            if (fs.existsSync(tempMp4CompressedPath)) fs.unlinkSync(tempMp4CompressedPath);
+          } catch (e) {
+            // ignore cleanup errors
+          }
+          reject(err);
+        })
+        .run();
+    } catch (err) {
+      try {
+        if (fs.existsSync(tempGifPath)) fs.unlinkSync(tempGifPath);
+        if (fs.existsSync(tempMp4Path)) fs.unlinkSync(tempMp4Path);
+        if (fs.existsSync(tempMp4CompressedPath)) fs.unlinkSync(tempMp4CompressedPath);
+      } catch (e) {
+        // ignore cleanup errors
+      }
+      reject(err);
+    }
+  });
+}
+
 async function enrichConcertMessagesWithAvatars(rows) {
   const normalizedRows = Array.isArray(rows) ? rows : [];
   const userIds = Array.from(
@@ -1132,13 +1236,41 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
 
     if (hasAvatar) {
       const avatarPayload = decodeOptionalImageData(body.avatarDataUrl);
-      avatarBlob = avatarPayload.blob;
-      avatarMime = avatarPayload.mime;
+      let blob = avatarPayload.blob;
+      let mime = avatarPayload.mime;
+      
+      // Convert GIF to MP4 for avatars too (optional, but we can)
+      if (mime === "image/gif" && blob.length > 100 * 1024) {
+        try {
+          const converted = await convertGifToMp4(blob);
+          blob = converted.blob;
+          mime = converted.mime;
+        } catch (err) {
+          console.warn("GIF to MP4 conversion failed for avatar, keeping as GIF:", err.message);
+        }
+      }
+      
+      avatarBlob = blob;
+      avatarMime = mime;
     }
     if (hasBanner) {
       const bannerPayload = decodeOptionalImageData(body.bannerDataUrl);
-      bannerBlob = bannerPayload.blob;
-      bannerMime = bannerPayload.mime;
+      let blob = bannerPayload.blob;
+      let mime = bannerPayload.mime;
+      
+      // Convert GIF to MP4 for banners
+      if (mime === "image/gif") {
+        try {
+          const converted = await convertGifToMp4(blob);
+          blob = converted.blob;
+          mime = converted.mime;
+        } catch (err) {
+          console.warn("GIF to MP4 conversion failed for banner, keeping as GIF:", err.message);
+        }
+      }
+      
+      bannerBlob = blob;
+      bannerMime = mime;
     }
 
     if (!username || username.length < 3) {
