@@ -35,7 +35,9 @@ let durationMs = 0;
 let timer = null;
 let playerPollTimer = null;
 let spotifyControlEnabled = false;
+let spotifyRateLimitedUntil = 0;
 const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
+const SPOTIFY_DEFAULT_RETRY_MS = 15000;
 const TICKETMASTER_KEY = String(
 	window.WITHME_CONFIG?.TicketmasterKey
 	|| window.WITHME_CONFIG?.ticketmasterKey
@@ -395,13 +397,42 @@ async function handleSpotifyOAuthCallbackOnHome() {
 	}
 }
 
+function parseRetryAfterMs(response) {
+	const raw = String(response?.headers?.get("Retry-After") || "").trim();
+	if (!raw) {
+		return SPOTIFY_DEFAULT_RETRY_MS;
+	}
+
+	const numeric = Number(raw);
+	if (Number.isFinite(numeric) && numeric > 0) {
+		return Math.max(1000, Math.round(numeric * 1000));
+	}
+
+	const dateMs = Date.parse(raw);
+	if (Number.isFinite(dateMs)) {
+		return Math.max(1000, dateMs - Date.now());
+	}
+
+	return SPOTIFY_DEFAULT_RETRY_MS;
+}
+
 async function spotifyGet(path, accessToken) {
+	if (Date.now() < spotifyRateLimitedUntil) {
+		throw new Error("spotify_error_429:rate_limited");
+	}
+
 	const response = await fetch(`https://api.spotify.com/v1${path}`, {
 		headers: { Authorization: `Bearer ${accessToken}` }
 	});
 
 	if (response.status === 401) {
 		throw new Error("spotify_unauthorized");
+	}
+
+	if (response.status === 429) {
+		const retryMs = parseRetryAfterMs(response);
+		spotifyRateLimitedUntil = Date.now() + retryMs;
+		throw new Error(`spotify_error_429:retry_after_ms=${retryMs}`);
 	}
 
 	if (!response.ok) {
@@ -483,6 +514,10 @@ function renderPlayerTrack(track) {
 }
 
 async function spotifyRequest(path, accessToken, method = "GET", body) {
+	if (Date.now() < spotifyRateLimitedUntil) {
+		throw new Error("spotify_error_429:rate_limited");
+	}
+
 	const response = await fetch(`https://api.spotify.com/v1${path}`, {
 		method,
 		headers: {
@@ -498,6 +533,12 @@ async function spotifyRequest(path, accessToken, method = "GET", body) {
 
 	if (response.status === 204) {
 		return null;
+	}
+
+	if (response.status === 429) {
+		const retryMs = parseRetryAfterMs(response);
+		spotifyRateLimitedUntil = Date.now() + retryMs;
+		throw new Error(`spotify_error_429:retry_after_ms=${retryMs}`);
 	}
 
 	if (!response.ok) {
@@ -540,6 +581,10 @@ function parseSpotifyApiError(error) {
 }
 
 async function syncNowPlayingFromSpotify() {
+	if (Date.now() < spotifyRateLimitedUntil) {
+		return;
+	}
+
 	const token = await getValidSpotifyToken();
 	if (!token) {
 		spotifyControlEnabled = false;
@@ -585,6 +630,9 @@ async function syncNowPlayingFromSpotify() {
 			setPlaybackState(false);
 			renderPlayerTrack(null);
 			setProgressValues(0, 0);
+			return;
+		}
+		if (status === 429) {
 			return;
 		}
 	}
@@ -639,7 +687,7 @@ function startPlayerPolling() {
 	}
 	playerPollTimer = setInterval(() => {
 		syncNowPlayingFromSpotify();
-	}, 7000);
+	}, 15000);
 }
 
 function mapArtistRankingItem(artist) {
