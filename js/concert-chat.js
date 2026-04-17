@@ -25,6 +25,18 @@ function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
 }
 
+function getApiBaseUrl() {
+	return String(window.WITHME_CONFIG?.apiBaseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function apiUrl(path) {
+	const base = getApiBaseUrl();
+	if (!base) {
+		return path;
+	}
+	return `${base}${path}`;
+}
+
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
@@ -170,7 +182,7 @@ async function fetchConcertMessages() {
 
 	let lastError = "";
 	for (const endpoint of endpoints) {
-		const response = await fetch(endpoint, {
+		const response = await fetch(apiUrl(endpoint), {
 			headers: { Authorization: `Bearer ${token}` }
 		});
 
@@ -213,7 +225,7 @@ async function postConcertMessage(message) {
 
 	let lastError = "";
 	for (const attempt of attempts) {
-		const response = await fetch(attempt.url, {
+		const response = await fetch(apiUrl(attempt.url), {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
