@@ -37,6 +37,7 @@ const DB_PATH = path.join(__dirname, "database", "user.db");
 const CHAT_DB_PATH = path.join(__dirname, "database", "chatConcert.db");
 const PRIVATE_MESSAGE_DB_PATH = path.join(__dirname, "database", "PrivateMessage.db");
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const FIRESTORE_IMAGE_MAX_BYTES = 350 * 1024;
 
 const db = new sqlite3.Database(DB_PATH);
 const chatDb = new sqlite3.Database(CHAT_DB_PATH);
@@ -601,7 +602,7 @@ function decodeOptionalImageData(value) {
   if (!blob.length) {
     throw new Error("invalid_image_data");
   }
-  if (blob.length > 2 * 1024 * 1024) {
+  if (blob.length > FIRESTORE_IMAGE_MAX_BYTES) {
     throw new Error("image_too_large");
   }
 
@@ -721,6 +722,10 @@ async function syncUsersToFirestore() {
           email,
           password_hash,
           bio,
+          avatar_blob,
+          avatar_mime,
+          banner_blob,
+          banner_mime,
           spotify_id,
           spotify_display_name,
           created_at,
@@ -744,6 +749,36 @@ async function syncUsersToFirestore() {
   }
 }
 
+function decodeFirestoreBlobField(row, fieldName) {
+  const rawValue = row?.[fieldName];
+  if (!rawValue) {
+    return null;
+  }
+
+  if (Buffer.isBuffer(rawValue)) {
+    return rawValue;
+  }
+
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+
+  const encoding = String(row?.[`${fieldName}_encoding`] || "").trim().toLowerCase();
+  if (encoding && encoding !== "base64") {
+    return null;
+  }
+
+  try {
+    const normalized = rawValue.replace(/\s+/g, "");
+    if (!normalized) {
+      return null;
+    }
+    return Buffer.from(normalized, "base64");
+  } catch (error) {
+    return null;
+  }
+}
+
 function normalizeFirestoreUserRow(row) {
   const id = Number(row?.id || 0);
   if (!Number.isFinite(id) || id <= 0) {
@@ -764,6 +799,10 @@ function normalizeFirestoreUserRow(row) {
     email,
     passwordHash,
     bio: String(row?.bio || "").trim(),
+    avatarBlob: decodeFirestoreBlobField(row, "avatar_blob"),
+    avatarMime: String(row?.avatar_mime || "").trim().toLowerCase(),
+    bannerBlob: decodeFirestoreBlobField(row, "banner_blob"),
+    bannerMime: String(row?.banner_mime || "").trim().toLowerCase(),
     spotifyId: String(row?.spotify_id || "").trim(),
     spotifyDisplayName: String(row?.spotify_display_name || "").trim(),
     createdAt: Number(row?.created_at || 0) || Date.now(),
@@ -797,6 +836,10 @@ async function hydrateUsersFromFirestore() {
                email = ?,
                password_hash = ?,
                bio = ?,
+               avatar_blob = ?,
+               avatar_mime = ?,
+               banner_blob = ?,
+               banner_mime = ?,
                spotify_id = ?,
                spotify_display_name = ?,
                created_at = ?,
@@ -807,6 +850,10 @@ async function hydrateUsersFromFirestore() {
             user.email,
             user.passwordHash,
             user.bio,
+            user.avatarBlob,
+            user.avatarMime,
+            user.bannerBlob,
+            user.bannerMime,
             user.spotifyId,
             user.spotifyDisplayName,
             user.createdAt,
@@ -817,14 +864,18 @@ async function hydrateUsersFromFirestore() {
       } else {
         await run(
           `INSERT INTO users
-            (id, username, email, password_hash, bio, spotify_id, spotify_display_name, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, username, email, password_hash, bio, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             user.id,
             user.username,
             user.email,
             user.passwordHash,
             user.bio,
+            user.avatarBlob,
+            user.avatarMime,
+            user.bannerBlob,
+            user.bannerMime,
             user.spotifyId,
             user.spotifyDisplayName,
             user.createdAt,

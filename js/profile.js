@@ -113,8 +113,8 @@ async function handleImageInput(inputEl, target) {
 	if (!file) {
 		return;
 	}
-	if (file.size > 2 * 1024 * 1024) {
-		setStatus("Image trop lourde (max 2 Mo).", true);
+	if (file.size > 350 * 1024) {
+		setStatus("Image trop lourde (max 350 Ko).", true);
 		inputEl.value = "";
 		return;
 	}
@@ -153,7 +153,7 @@ function parseProfileError(error) {
 		case "invalid_image_type":
 			return "Format image non supporte. Utilise JPG, PNG, WEBP ou GIF.";
 		case "image_too_large":
-			return "Image trop lourde. Maximum 2 Mo.";
+			return "Image trop lourde. Maximum 350 Ko.";
 		default:
 			return "Impossible de sauvegarder le profil.";
 	}
