@@ -37,6 +37,7 @@ let playerPollTimer = null;
 let spotifyControlEnabled = false;
 let spotifyRateLimitedUntil = 0;
 let ticketmasterRateLimitedUntil = 0;
+const SPOTIFY_RATE_LIMIT_KEY = "WithMe-spotify-rate-limited-until";
 const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 const SPOTIFY_DEFAULT_RETRY_MS = 15000;
 const SPOTIFY_HOME_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -75,6 +76,24 @@ function writeJsonCache(key, value, ttlMs) {
 	}
 	try {
 		localStorage.setItem(key, JSON.stringify({ value, expiresAt: Date.now() + ttlMs }));
+	} catch (e) {}
+}
+
+function getSpotifyRateLimitedUntil() {
+	try {
+		const raw = localStorage.getItem(SPOTIFY_RATE_LIMIT_KEY) || "0";
+		const parsed = Number(raw);
+		const storageUntil = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+		return Math.max(storageUntil, spotifyRateLimitedUntil);
+	} catch (e) {
+		return spotifyRateLimitedUntil;
+	}
+}
+
+function setSpotifyRateLimitedUntil(untilMs) {
+	spotifyRateLimitedUntil = Math.max(spotifyRateLimitedUntil, Math.max(0, Number(untilMs) || 0));
+	try {
+		localStorage.setItem(SPOTIFY_RATE_LIMIT_KEY, String(spotifyRateLimitedUntil));
 	} catch (e) {}
 }
 
@@ -466,7 +485,7 @@ function parseRetryAfterMs(response) {
 }
 
 async function spotifyGet(path, accessToken) {
-	if (Date.now() < spotifyRateLimitedUntil) {
+	if (Date.now() < getSpotifyRateLimitedUntil()) {
 		throw new Error("spotify_error_429:rate_limited");
 	}
 
@@ -480,7 +499,7 @@ async function spotifyGet(path, accessToken) {
 
 	if (response.status === 429) {
 		const retryMs = parseRetryAfterMs(response);
-		spotifyRateLimitedUntil = Date.now() + retryMs;
+		setSpotifyRateLimitedUntil(Date.now() + retryMs);
 		throw new Error(`spotify_error_429:retry_after_ms=${retryMs}`);
 	}
 
@@ -563,7 +582,7 @@ function renderPlayerTrack(track) {
 }
 
 async function spotifyRequest(path, accessToken, method = "GET", body) {
-	if (Date.now() < spotifyRateLimitedUntil) {
+	if (Date.now() < getSpotifyRateLimitedUntil()) {
 		throw new Error("spotify_error_429:rate_limited");
 	}
 
@@ -586,7 +605,7 @@ async function spotifyRequest(path, accessToken, method = "GET", body) {
 
 	if (response.status === 429) {
 		const retryMs = parseRetryAfterMs(response);
-		spotifyRateLimitedUntil = Date.now() + retryMs;
+		setSpotifyRateLimitedUntil(Date.now() + retryMs);
 		throw new Error(`spotify_error_429:retry_after_ms=${retryMs}`);
 	}
 
@@ -630,7 +649,7 @@ function parseSpotifyApiError(error) {
 }
 
 async function syncNowPlayingFromSpotify() {
-	if (Date.now() < spotifyRateLimitedUntil) {
+	if (Date.now() < getSpotifyRateLimitedUntil()) {
 		return;
 	}
 
