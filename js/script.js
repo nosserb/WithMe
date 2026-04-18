@@ -445,14 +445,10 @@ async function handleSpotifyOAuthCallbackOnHome() {
 		setStoredValue("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
 
 		if (tokenData.access_token) {
-			try {
-				const profile = await spotifyGet("/me", tokenData.access_token);
-				const displayName = profile?.display_name || profile?.id || "";
-				if (displayName) {
-					setCookie("WithMe-display-name", displayName, 60 * 60 * 24 * 365);
-					setStoredValue("WithMe-display-name", displayName);
-				}
-			} catch (e) {}
+			const knownName = String(getStoredValue("WithMe-display-name") || "").trim();
+			if (knownName) {
+				setCookie("WithMe-display-name", knownName, 60 * 60 * 24 * 365);
+			}
 		}
 	} catch (e) {
 		clearSpotifyStoredAuth();
@@ -1140,7 +1136,7 @@ async function initSpotifyHomeData() {
 	}
 
 	try {
-		const profile = await spotifyGetCached("/me", token, "WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
+		const profile = readJsonCache("WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
 		const topTracksRes = await spotifyGetCached(
 			"/me/top/tracks?limit=6&time_range=short_term",
 			token,
@@ -1161,7 +1157,7 @@ async function initSpotifyHomeData() {
 		);
 		const sidebarPlaylists = await fetchSidebarPlaylists(token, playlistMenuLinks.length || 4);
 
-		const displayName = profile?.display_name || profile?.id || "";
+		const displayName = profile?.display_name || profile?.id || String(getStoredValue("WithMe-display-name") || "").trim();
 		if (displayName) {
 			setCookie("WithMe-display-name", displayName, 60 * 60 * 24 * 365);
 			setStoredValue("WithMe-display-name", displayName);
