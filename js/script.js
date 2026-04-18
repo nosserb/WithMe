@@ -1138,19 +1138,9 @@ async function initSpotifyHomeData() {
 	try {
 		const profile = readJsonCache("WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
 		const topTracksRes = readJsonCache("WithMe-top-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
-		const recentRes = await spotifyGetCached(
-			"/me/player/recently-played?limit=4",
-			token,
-			"WithMe-recent-tracks",
-			SPOTIFY_HOME_CACHE_TTL_MS
-		);
-		const topArtistsRes = await spotifyGetCached(
-			"/me/top/artists?limit=5&time_range=short_term",
-			token,
-			"WithMe-top-artists",
-			SPOTIFY_HOME_CACHE_TTL_MS
-		);
-		const sidebarPlaylists = await fetchSidebarPlaylists(token, playlistMenuLinks.length || 4);
+		const recentRes = readJsonCache("WithMe-recent-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
+		const topArtistsRes = readJsonCache("WithMe-top-artists", SPOTIFY_HOME_CACHE_TTL_MS);
+		const sidebarPlaylists = readJsonCache(`WithMe-playlists-${playlistMenuLinks.length || 4}`, SPOTIFY_HOME_CACHE_TTL_MS)?.items || [];
 
 		const displayName = profile?.display_name || profile?.id || String(getStoredValue("WithMe-display-name") || "").trim();
 		if (displayName) {
@@ -1189,7 +1179,7 @@ async function initSpotifyHomeData() {
 			renderPlayerTrack(firstPlayable);
 		}
 
-		await syncNowPlayingFromSpotify();
+		// No automatic Spotify player sync on page load to avoid rate-limit bursts.
 	} catch (error) {
 		if (String(error?.message || "").includes("spotify_unauthorized")) {
 			clearSpotifyStoredAuth();
@@ -1247,6 +1237,4 @@ if (themeToggle) {
 	initWelcome();
 	initSpotifyHomeData();
 	startProgressLoop();
-	startPlayerPolling();
-	syncNowPlayingFromSpotify();
 })();
