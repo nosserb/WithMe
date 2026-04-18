@@ -1137,12 +1137,7 @@ async function initSpotifyHomeData() {
 
 	try {
 		const profile = readJsonCache("WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
-		const topTracksRes = await spotifyGetCached(
-			"/me/top/tracks?limit=6&time_range=short_term",
-			token,
-			"WithMe-top-tracks",
-			SPOTIFY_HOME_CACHE_TTL_MS
-		);
+		const topTracksRes = readJsonCache("WithMe-top-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
 		const recentRes = await spotifyGetCached(
 			"/me/player/recently-played?limit=4",
 			token,
