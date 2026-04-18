@@ -18,14 +18,14 @@
 		return;
 	}
 
-	if (!user.spotifyLinked) {
-		window.WithMeAuth.redirectToLogin("step=spotify");
-		return;
-	}
-
 	const hasSpotifySession = typeof window.WithMeAuth.hasSpotifySession === "function"
 		? window.WithMeAuth.hasSpotifySession()
 		: false;
+
+	if (!user.spotifyLinked && !hasSpotifySession) {
+		window.WithMeAuth.redirectToLogin("step=spotify");
+		return;
+	}
 
 	if (!hasSpotifySession) {
 		window.WithMeAuth.redirectToLogin("step=spotify&resync=1");

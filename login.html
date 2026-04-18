@@ -474,12 +474,9 @@
 				}
 
 				const tokenData = await exchangeCodeForToken(code, SPOTIFY_CLIENT_ID, verifier);
-				const profile = await fetchSpotifyProfile(tokenData.access_token);
-				const displayName = profile.display_name || profile.id || "Utilisateur";
 
-				setCookie("WithMe-display-name", displayName, COOKIE_MAX_AGE);
+				// Save Spotify session first so the app can continue even if /me is rate-limited.
 				try {
-					localStorage.setItem("WithMe-display-name", displayName);
 					localStorage.setItem("WithMe-spotify-access-token", tokenData.access_token || "");
 					localStorage.setItem("WithMe-spotify-refresh-token", tokenData.refresh_token || "");
 					localStorage.setItem("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)));
@@ -489,9 +486,27 @@
 				setCookie("WithMe-spotify-refresh-token", tokenData.refresh_token || "", COOKIE_MAX_AGE);
 				setCookie("WithMe-spotify-expires-at", String(Date.now() + ((tokenData.expires_in || 3600) * 1000)), COOKIE_MAX_AGE);
 
-				const updatedUser = await window.WithMeAuth.linkSpotify(profile.id || "", displayName);
-				currentUser = updatedUser || currentUser;
-				refreshWithMeState();
+				let displayName = "Utilisateur";
+				let profile = null;
+				try {
+					profile = await fetchSpotifyProfile(tokenData.access_token);
+					displayName = profile.display_name || profile.id || "Utilisateur";
+					setCookie("WithMe-display-name", displayName, COOKIE_MAX_AGE);
+					try {
+						localStorage.setItem("WithMe-display-name", displayName);
+					} catch (e) {}
+				} catch (profileError) {
+					const profileErrMsg = String(profileError?.message || "");
+					if (!profileErrMsg.includes("Spotify est temporairement surcharge") && !profileErrMsg.includes("Spotify limite temporairement")) {
+						throw profileError;
+					}
+				}
+
+				if (profile?.id) {
+					const updatedUser = await window.WithMeAuth.linkSpotify(profile.id || "", displayName);
+					currentUser = updatedUser || currentUser;
+					refreshWithMeState();
+				}
 
 				sessionStorage.removeItem("WithMe-code-verifier");
 				sessionStorage.removeItem("WithMe-oauth-state");
@@ -499,7 +514,10 @@
 				clearCookie("WithMe-oauth-state");
 
 				history.replaceState({}, document.title, CURRENT_LOGIN_URI);
-				setStatus(`Compte Spotify lie: ${displayName}. Redirection vers l'accueil...`);
+				setStatus(profile?.id
+					? `Compte Spotify lie: ${displayName}. Redirection vers l'accueil...`
+					: "Spotify connecte. Synchronisation du profil en cours, redirection..."
+				);
 
 				setTimeout(() => {
 					window.location.href = POST_LOGIN_REDIRECT;
