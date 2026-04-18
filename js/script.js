@@ -1137,10 +1137,51 @@ async function initSpotifyHomeData() {
 
 	try {
 		const profile = readJsonCache("WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
-		const topTracksRes = readJsonCache("WithMe-top-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
-		const recentRes = readJsonCache("WithMe-recent-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
-		const topArtistsRes = readJsonCache("WithMe-top-artists", SPOTIFY_HOME_CACHE_TTL_MS);
-		const sidebarPlaylists = readJsonCache(`WithMe-playlists-${playlistMenuLinks.length || 4}`, SPOTIFY_HOME_CACHE_TTL_MS)?.items || [];
+		let topTracksRes = readJsonCache("WithMe-top-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
+		let recentRes = readJsonCache("WithMe-recent-tracks", SPOTIFY_HOME_CACHE_TTL_MS);
+		let topArtistsRes = readJsonCache("WithMe-top-artists", SPOTIFY_HOME_CACHE_TTL_MS);
+		const playlistsCacheKey = `WithMe-playlists-${playlistMenuLinks.length || 4}`;
+		let playlistsListing = readJsonCache(playlistsCacheKey, SPOTIFY_HOME_CACHE_TTL_MS);
+
+		if (Date.now() >= getSpotifyRateLimitedUntil()) {
+			if (!topTracksRes) {
+				topTracksRes = await spotifyGetCached(
+					"/me/top/tracks?limit=6&time_range=short_term",
+					token,
+					"WithMe-top-tracks",
+					SPOTIFY_HOME_CACHE_TTL_MS
+				);
+			}
+			if (!recentRes) {
+				recentRes = await spotifyGetCached(
+					"/me/player/recently-played?limit=4",
+					token,
+					"WithMe-recent-tracks",
+					SPOTIFY_HOME_CACHE_TTL_MS
+				);
+			}
+			if (!topArtistsRes) {
+				topArtistsRes = await spotifyGetCached(
+					"/me/top/artists?limit=5&time_range=short_term",
+					token,
+					"WithMe-top-artists",
+					SPOTIFY_HOME_CACHE_TTL_MS
+				);
+			}
+			if (!playlistsListing) {
+				playlistsListing = await spotifyGetCached(
+					`/me/playlists?limit=${Math.min(10, Math.max(1, playlistMenuLinks.length || 4))}&offset=0`,
+					token,
+					playlistsCacheKey,
+					SPOTIFY_HOME_CACHE_TTL_MS
+				);
+			}
+		}
+
+		const sidebarPlaylists = (playlistsListing?.items || [])
+			.slice(0, Math.min(10, Math.max(1, playlistMenuLinks.length || 4)))
+			.map((item) => mapSidebarPlaylist(item))
+			.filter(Boolean);
 
 		const displayName = profile?.display_name || profile?.id || String(getStoredValue("WithMe-display-name") || "").trim();
 		if (displayName) {
@@ -1179,7 +1220,7 @@ async function initSpotifyHomeData() {
 			renderPlayerTrack(firstPlayable);
 		}
 
-		// No automatic Spotify player sync on page load to avoid rate-limit bursts.
+		// Keep player sync disabled on startup to avoid hitting extra playback endpoints.
 	} catch (error) {
 		if (String(error?.message || "").includes("spotify_unauthorized")) {
 			clearSpotifyStoredAuth();
