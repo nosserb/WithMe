@@ -36,14 +36,63 @@ let timer = null;
 let playerPollTimer = null;
 let spotifyControlEnabled = false;
 let spotifyRateLimitedUntil = 0;
+let ticketmasterRateLimitedUntil = 0;
 const SPOTIFY_CLIENT_ID = window.WITHME_CONFIG?.spotifyClientId || "";
 const SPOTIFY_DEFAULT_RETRY_MS = 15000;
+const SPOTIFY_HOME_CACHE_TTL_MS = 10 * 60 * 1000;
+const SPOTIFY_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CONCERTS_CACHE_TTL_MS = 30 * 60 * 1000;
 const TICKETMASTER_KEY = String(
 	window.WITHME_CONFIG?.TicketmasterKey
 	|| window.WITHME_CONFIG?.ticketmasterKey
 	|| window.WITHME_CONFIG?.ticketmasterApiKey
 	|| ""
 ).trim();
+
+function readJsonCache(key, ttlMs) {
+	if (!key || !ttlMs) {
+		return null;
+	}
+	try {
+		const raw = localStorage.getItem(key) || "";
+		if (!raw) {
+			return null;
+		}
+		const parsed = JSON.parse(raw);
+		if (!parsed || !Number(parsed.expiresAt) || Date.now() > Number(parsed.expiresAt)) {
+			localStorage.removeItem(key);
+			return null;
+		}
+		return parsed.value;
+	} catch (e) {
+		return null;
+	}
+}
+
+function writeJsonCache(key, value, ttlMs) {
+	if (!key || !ttlMs) {
+		return;
+	}
+	try {
+		localStorage.setItem(key, JSON.stringify({ value, expiresAt: Date.now() + ttlMs }));
+	} catch (e) {}
+}
+
+async function spotifyGetCached(path, accessToken, cacheKey, ttlMs) {
+	try {
+		const data = await spotifyGet(path, accessToken);
+		if (cacheKey && ttlMs && data) {
+			writeJsonCache(cacheKey, data, ttlMs);
+		}
+		return data;
+	} catch (error) {
+		const { status } = parseSpotifyApiError(error);
+		if (status === 429 || String(error?.message || "").includes("rate_limited")) {
+			return readJsonCache(cacheKey, ttlMs);
+		}
+		throw error;
+	}
+}
 
 function setCookie(name, value, maxAgeSeconds) {
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -774,6 +823,17 @@ async function fetchConcertsForArtist(artistName) {
 		return [];
 	}
 
+	const artistKey = String(artistName).trim().toLowerCase();
+	const cacheKey = `WithMe-concerts-${artistKey}`;
+	const cached = readJsonCache(cacheKey, CONCERTS_CACHE_TTL_MS);
+	if (Array.isArray(cached) && cached.length) {
+		return cached;
+	}
+
+	if (Date.now() < ticketmasterRateLimitedUntil) {
+		return [];
+	}
+
 	const baseUrl = "https://app.ticketmaster.com/discovery/v2/events.json";
 	const startDateTime = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 	const params = new URLSearchParams({
@@ -790,14 +850,18 @@ async function fetchConcertsForArtist(artistName) {
 
 	const directUrl = `${baseUrl}?${params.toString()}`;
 	const proxiedUrls = [
-		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
-		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`
+		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`,
+		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`
 	];
 
 	for (const url of proxiedUrls) {
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
+				if (response.status === 429) {
+					ticketmasterRateLimitedUntil = Date.now() + (60 * 1000);
+					break;
+				}
 				continue;
 			}
 			const payload = await response.json();
@@ -806,9 +870,13 @@ async function fetchConcertsForArtist(artistName) {
 				: payload;
 			const events = normalized?._embedded?.events || [];
 			if (Array.isArray(events) && events.length) {
-				return events
+				const mapped = events
 					.map((eventItem) => mapConcertItem(eventItem, artistName))
 					.filter(Boolean);
+				if (mapped.length) {
+					writeJsonCache(cacheKey, mapped, CONCERTS_CACHE_TTL_MS);
+				}
+				return mapped;
 			}
 		} catch (e) {
 			continue;
@@ -819,6 +887,11 @@ async function fetchConcertsForArtist(artistName) {
 }
 
 async function fetchRecentConcerts(topArtists) {
+	const cached = readJsonCache("WithMe-concerts-recent", CONCERTS_CACHE_TTL_MS);
+	if (Array.isArray(cached) && cached.length) {
+		return cached;
+	}
+
 	if (!TICKETMASTER_KEY) {
 		return [];
 	}
@@ -826,16 +899,22 @@ async function fetchRecentConcerts(topArtists) {
 	const artistsFromSpotify = Array.isArray(topArtists)
 		? topArtists.map((artist) => String(artist?.name || "").trim()).filter(Boolean)
 		: [];
-	const artists = artistsFromSpotify.length ? artistsFromSpotify.slice(0, 5) : getFallbackConcertArtists();
+	const artists = artistsFromSpotify.length ? artistsFromSpotify.slice(0, 2) : getFallbackConcertArtists().slice(0, 2);
 
 	if (!artists.length) {
 		return [];
 	}
 
-	const settled = await Promise.allSettled(artists.map((name) => fetchConcertsForArtist(name)));
-	const merged = settled
-		.filter((item) => item.status === "fulfilled")
-		.flatMap((item) => item.value || []);
+	const merged = [];
+	for (const name of artists) {
+		const events = await fetchConcertsForArtist(name);
+		if (Array.isArray(events) && events.length) {
+			merged.push(...events);
+		}
+		if (merged.length >= 8) {
+			break;
+		}
+	}
 
 	const unique = [];
 	const seen = new Set();
@@ -849,7 +928,11 @@ async function fetchRecentConcerts(topArtists) {
 	}
 
 	unique.sort((a, b) => a.whenMs - b.whenMs);
-	return unique.slice(0, 6);
+	const sliced = unique.slice(0, 6);
+	if (sliced.length) {
+		writeJsonCache("WithMe-concerts-recent", sliced, CONCERTS_CACHE_TTL_MS);
+	}
+	return sliced;
 }
 
 function renderRecentConcerts(concerts) {
@@ -938,7 +1021,7 @@ function renderDmFriends(items) {
 		const item = document.createElement("li");
 		item.className = "dm-friend-item";
 		item.innerHTML = `
-			<a class="dm-friend-link" href="/direct-chat.html?userId=${encodeURIComponent(id)}&username=${encodeURIComponent(username)}">
+			<a class="dm-friend-link" href="direct-chat.html?userId=${encodeURIComponent(id)}&username=${encodeURIComponent(username)}">
 				<img src="${avatarUrl}" alt="Avatar ${username}" />
 				<div>
 					<strong>${username}</strong>
@@ -1014,27 +1097,16 @@ async function fetchSidebarPlaylists(token, limit = 4) {
 	}
 
 	const normalizedLimit = Math.min(10, Math.max(1, Number(limit) || 4));
-	const listing = await spotifyGet(`/me/playlists?limit=${normalizedLimit}&offset=0`, token);
-	const playlistIds = (listing?.items || [])
-		.map((item) => String(item?.id || "").trim())
-		.filter(Boolean)
-		.slice(0, normalizedLimit);
-
-	if (!playlistIds.length) {
-		return [];
-	}
-
-	const fields = "id,name,external_urls.spotify,owner(display_name,id),tracks(total)";
-	const settled = await Promise.allSettled(
-		playlistIds.map((playlistId) => spotifyGet(
-			`/playlists/${encodeURIComponent(playlistId)}?fields=${encodeURIComponent(fields)}&additional_types=track`,
-			token
-		))
+	const listing = await spotifyGetCached(
+		`/me/playlists?limit=${normalizedLimit}&offset=0`,
+		token,
+		`WithMe-playlists-${normalizedLimit}`,
+		SPOTIFY_HOME_CACHE_TTL_MS
 	);
 
-	return settled
-		.filter((result) => result.status === "fulfilled")
-		.map((result) => mapSidebarPlaylist(result.value))
+	return (listing?.items || [])
+		.slice(0, normalizedLimit)
+		.map((item) => mapSidebarPlaylist(item))
 		.filter(Boolean);
 }
 
@@ -1049,19 +1121,26 @@ async function initSpotifyHomeData() {
 	}
 
 	try {
-		const settled = await Promise.allSettled([
-			spotifyGet("/me", token),
-			spotifyGet("/me/top/tracks?limit=6&time_range=short_term", token),
-			spotifyGet("/me/player/recently-played?limit=4", token),
-			spotifyGet("/me/top/artists?limit=5&time_range=short_term", token),
-			fetchSidebarPlaylists(token, playlistMenuLinks.length || 4)
-		]);
-
-		const profile = settled[0].status === "fulfilled" ? settled[0].value : null;
-		const topTracksRes = settled[1].status === "fulfilled" ? settled[1].value : null;
-		const recentRes = settled[2].status === "fulfilled" ? settled[2].value : null;
-		const topArtistsRes = settled[3].status === "fulfilled" ? settled[3].value : null;
-		const sidebarPlaylists = settled[4].status === "fulfilled" ? settled[4].value : [];
+		const profile = await spotifyGetCached("/me", token, "WithMe-profile", SPOTIFY_PROFILE_CACHE_TTL_MS);
+		const topTracksRes = await spotifyGetCached(
+			"/me/top/tracks?limit=6&time_range=short_term",
+			token,
+			"WithMe-top-tracks",
+			SPOTIFY_HOME_CACHE_TTL_MS
+		);
+		const recentRes = await spotifyGetCached(
+			"/me/player/recently-played?limit=4",
+			token,
+			"WithMe-recent-tracks",
+			SPOTIFY_HOME_CACHE_TTL_MS
+		);
+		const topArtistsRes = await spotifyGetCached(
+			"/me/top/artists?limit=5&time_range=short_term",
+			token,
+			"WithMe-top-artists",
+			SPOTIFY_HOME_CACHE_TTL_MS
+		);
+		const sidebarPlaylists = await fetchSidebarPlaylists(token, playlistMenuLinks.length || 4);
 
 		const displayName = profile?.display_name || profile?.id || "";
 		if (displayName) {

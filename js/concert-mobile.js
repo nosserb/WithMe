@@ -8,6 +8,38 @@ const TICKETMASTER_KEY = String(
 	|| window.WITHME_CONFIG?.ticketmasterApiKey
 	|| ""
 ).trim();
+const MOBILE_CONCERTS_CACHE_TTL_MS = 30 * 60 * 1000;
+const MOBILE_TOP_ARTISTS_CACHE_TTL_MS = 10 * 60 * 1000;
+let ticketmasterRateLimitedUntil = 0;
+
+function readJsonCache(key, ttlMs) {
+	if (!key || !ttlMs) {
+		return null;
+	}
+	try {
+		const raw = localStorage.getItem(key) || "";
+		if (!raw) {
+			return null;
+		}
+		const parsed = JSON.parse(raw);
+		if (!parsed || !Number(parsed.expiresAt) || Date.now() > Number(parsed.expiresAt)) {
+			localStorage.removeItem(key);
+			return null;
+		}
+		return parsed.value;
+	} catch (e) {
+		return null;
+	}
+}
+
+function writeJsonCache(key, value, ttlMs) {
+	if (!key || !ttlMs) {
+		return;
+	}
+	try {
+		localStorage.setItem(key, JSON.stringify({ value, expiresAt: Date.now() + ttlMs }));
+	} catch (e) {}
+}
 
 function getCookie(name) {
 	const parts = document.cookie ? document.cookie.split("; ") : [];
@@ -108,6 +140,17 @@ async function fetchConcertsForArtist(artistName) {
 		return [];
 	}
 
+	const artistKey = String(artistName).trim().toLowerCase();
+	const cacheKey = `WithMe-mobile-concerts-${artistKey}`;
+	const cached = readJsonCache(cacheKey, MOBILE_CONCERTS_CACHE_TTL_MS);
+	if (Array.isArray(cached) && cached.length) {
+		return cached;
+	}
+
+	if (Date.now() < ticketmasterRateLimitedUntil) {
+		return [];
+	}
+
 	const baseUrl = "https://app.ticketmaster.com/discovery/v2/events.json";
 	const startDateTime = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 	const params = new URLSearchParams({
@@ -124,14 +167,18 @@ async function fetchConcertsForArtist(artistName) {
 
 	const directUrl = `${baseUrl}?${params.toString()}`;
 	const proxiedUrls = [
-		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
-		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`
+		`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`,
+		`https://corsproxy.io/?${encodeURIComponent(directUrl)}`
 	];
 
 	for (const url of proxiedUrls) {
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
+				if (response.status === 429) {
+					ticketmasterRateLimitedUntil = Date.now() + (60 * 1000);
+					break;
+				}
 				continue;
 			}
 			const payload = await response.json();
@@ -140,7 +187,11 @@ async function fetchConcertsForArtist(artistName) {
 				: payload;
 			const events = normalized?._embedded?.events || [];
 			if (Array.isArray(events) && events.length) {
-				return events.map((eventItem) => mapConcertItem(eventItem, artistName)).filter(Boolean);
+				const mapped = events.map((eventItem) => mapConcertItem(eventItem, artistName)).filter(Boolean);
+				if (mapped.length) {
+					writeJsonCache(cacheKey, mapped, MOBILE_CONCERTS_CACHE_TTL_MS);
+				}
+				return mapped;
 			}
 		} catch (e) {
 			continue;
@@ -151,6 +202,14 @@ async function fetchConcertsForArtist(artistName) {
 }
 
 async function fetchTopArtists() {
+	const cachedTopArtists = readJsonCache("WithMe-top-artists", MOBILE_TOP_ARTISTS_CACHE_TTL_MS);
+	if (cachedTopArtists?.items?.length) {
+		return cachedTopArtists.items
+			.map((artist) => String(artist?.name || "").trim())
+			.filter(Boolean)
+			.slice(0, 5);
+	}
+
 	if (!window.WithMeSpotify?.getValidSpotifyToken || !window.WithMeSpotify?.spotifyGet) {
 		return [];
 	}
@@ -162,23 +221,41 @@ async function fetchTopArtists() {
 
 	try {
 		const topArtistsRes = await window.WithMeSpotify.spotifyGet("/me/top/artists?limit=5&time_range=short_term", token);
+		writeJsonCache("WithMe-mobile-top-artists", topArtistsRes, MOBILE_TOP_ARTISTS_CACHE_TTL_MS);
 		return (topArtistsRes?.items || [])
 			.map((artist) => String(artist?.name || "").trim())
 			.filter(Boolean)
 			.slice(0, 5);
 	} catch (error) {
+		const fallback = readJsonCache("WithMe-mobile-top-artists", MOBILE_TOP_ARTISTS_CACHE_TTL_MS);
+		if (fallback?.items?.length) {
+			return fallback.items
+				.map((artist) => String(artist?.name || "").trim())
+				.filter(Boolean)
+				.slice(0, 5);
+		}
 		return [];
 	}
 }
 
 async function fetchMobileConcerts() {
+	const cached = readJsonCache("WithMe-mobile-concerts-recent", MOBILE_CONCERTS_CACHE_TTL_MS);
+	if (Array.isArray(cached) && cached.length) {
+		return cached;
+	}
+
 	const spotifyArtists = await fetchTopArtists();
 	const artists = spotifyArtists.length ? spotifyArtists : getFallbackConcertArtists();
-
-	const settled = await Promise.allSettled(artists.map((name) => fetchConcertsForArtist(name)));
-	const merged = settled
-		.filter((item) => item.status === "fulfilled")
-		.flatMap((item) => item.value || []);
+	const merged = [];
+	for (const name of artists.slice(0, 2)) {
+		const events = await fetchConcertsForArtist(name);
+		if (Array.isArray(events) && events.length) {
+			merged.push(...events);
+		}
+		if (merged.length >= 12) {
+			break;
+		}
+	}
 
 	const unique = [];
 	const seen = new Set();
@@ -192,7 +269,11 @@ async function fetchMobileConcerts() {
 	}
 
 	unique.sort((a, b) => a.whenMs - b.whenMs);
-	return unique.slice(0, 12);
+	const sliced = unique.slice(0, 12);
+	if (sliced.length) {
+		writeJsonCache("WithMe-mobile-concerts-recent", sliced, MOBILE_CONCERTS_CACHE_TTL_MS);
+	}
+	return sliced;
 }
 
 function renderConcerts(concerts) {
