@@ -49,16 +49,17 @@
 
 	<script src="js/spotify-config.js?v=20260418-mobile-concert1"></script>
 	<script src="js/auth-client.js?v=20260418-mobile-concert1"></script>
-	<script>
-	// Redirection auto si déjà connecté
-	if (window.WithMeAuth && typeof window.WithMeAuth.getStoredToken === "function") {
-		const token = window.WithMeAuth.getStoredToken();
-		if (token) {
-			// Optionnel: vérifier que le token est valide côté serveur si besoin
-			window.location.href = "index.html";
-		}
-	}
-	</script>
+		<script>
+		// Redirection auto si déjà connecté (vérifie côté serveur)
+		(async function() {
+			if (window.WithMeAuth && typeof window.WithMeAuth.requireAuthOrRedirect === "function") {
+				const user = await window.WithMeAuth.requireAuthOrRedirect("login.html");
+				if (user) {
+					window.location.href = "index.html";
+				}
+			}
+		})();
+		</script>
 	<script src="js/header-auth.js?v=20260418-mobile-concert1"></script>
 	<script src="js/spotify-auth.js?v=20260418-mobile-concert1"></script>
 	<script src="js/concert-mobile.js?v=20260418-mobile-concert2"></script>
