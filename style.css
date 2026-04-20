@@ -1,3 +1,44 @@
+/* Thème Amour : fond rose et coeurs animés */
+.amour-theme {
+	background: linear-gradient(135deg, #ffb6e6 0%, #ff69b4 100%) !important;
+	color: #fff !important;
+}
+
+#amour-hearts-bg {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	pointer-events: none;
+	z-index: 1;
+	overflow: hidden;
+}
+
+.heart-animated {
+	position: absolute;
+	bottom: -40px;
+	width: 32px;
+	height: 32px;
+	background: url('data:image/svg+xml;utf8,<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 29s-13-8.35-13-16.5A7.5 7.5 0 0116 5a7.5 7.5 0 0113 7.5C29 20.65 16 29 16 29z" fill="%23ff69b4" stroke="%23fff" stroke-width="2"/></svg>') no-repeat center/contain;
+	opacity: 0.8;
+	animation: heart-float 6s linear infinite;
+}
+
+@keyframes heart-float {
+	0% {
+		transform: translateY(0) scale(1) rotate(-10deg);
+		opacity: 0.8;
+	}
+	50% {
+		opacity: 1;
+		transform: translateY(-50vh) scale(1.2) rotate(10deg);
+	}
+	100% {
+		transform: translateY(-100vh) scale(0.9) rotate(-10deg);
+		opacity: 0;
+	}
+}
 :root {
 	--bg: #e9edf1;
 	--surface: #ffffff;

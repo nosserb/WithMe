@@ -241,6 +241,9 @@ async function ensureUserProfileColumns() {
   if (!columnNames.has("banner_mime")) {
     await run(`ALTER TABLE users ADD COLUMN banner_mime TEXT NOT NULL DEFAULT ''`);
   }
+  if (!columnNames.has("theme")) {
+    await run(`ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT ''`);
+  }
 }
 
 function normalizeExistingUserId(value) {
@@ -1199,7 +1202,7 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
 app.get("/api/profile", authMiddleware, async (req, res) => {
   try {
     const userRow = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name, theme FROM users WHERE id = $1`,
       [req.user.id]
     );
 
@@ -1217,7 +1220,7 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
 app.put("/api/profile", authMiddleware, async (req, res) => {
   try {
     const currentUser = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name, theme FROM users WHERE id = $1`,
       [req.user.id]
     );
 
@@ -1232,10 +1235,12 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
     const hasBio = Object.prototype.hasOwnProperty.call(body, "bio");
     const hasAvatar = Object.prototype.hasOwnProperty.call(body, "avatarDataUrl");
     const hasBanner = Object.prototype.hasOwnProperty.call(body, "bannerDataUrl");
+    const hasTheme = Object.prototype.hasOwnProperty.call(body, "theme");
 
     const username = hasUsername ? String(body.username || "").trim() : currentUser.username;
     const email = hasEmail ? String(body.email || "").trim().toLowerCase() : currentUser.email;
     const bio = hasBio ? String(body.bio || "").trim() : (currentUser.bio || "");
+    const theme = hasTheme ? String(body.theme || "").trim() : (currentUser.theme || "");
 
     let avatarBlob = currentUser.avatar_blob || null;
     let avatarMime = currentUser.avatar_mime || "";
@@ -1305,12 +1310,12 @@ app.put("/api/profile", authMiddleware, async (req, res) => {
 
     const now = Date.now();
     await run(
-      `UPDATE users SET username = $1, email = $2, bio = $3, avatar_blob = $4, avatar_mime = $5, banner_blob = $6, banner_mime = $7, updated_at = $8 WHERE id = $9`,
-      [username, email, bio, avatarBlob, avatarMime, bannerBlob, bannerMime, now, req.user.id]
+      `UPDATE users SET username = $1, email = $2, bio = $3, avatar_blob = $4, avatar_mime = $5, banner_blob = $6, banner_mime = $7, theme = $8, updated_at = $9 WHERE id = $10`,
+      [username, email, bio, avatarBlob, avatarMime, bannerBlob, bannerMime, theme, now, req.user.id]
     );
 
     const updatedUser = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name, theme FROM users WHERE id = $1`,
       [req.user.id]
     );
 

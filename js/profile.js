@@ -45,6 +45,29 @@ function setCookie(name, value, maxAgeSeconds) {
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
+	// Thème spécial "amour"
+	if (mode === "amour") {
+		document.body.classList.add("amour-theme");
+		if (!document.getElementById("amour-hearts-bg")) {
+			const heartsBg = document.createElement("div");
+			heartsBg.id = "amour-hearts-bg";
+			heartsBg.innerHTML = "";
+			document.body.appendChild(heartsBg);
+			// Animation des coeurs
+			for (let i = 0; i < 20; i++) {
+				const heart = document.createElement("div");
+				heart.className = "heart-animated";
+				heart.style.left = Math.random() * 100 + "%";
+				heart.style.animationDelay = (Math.random() * 4) + "s";
+				heart.style.animationDuration = (3 + Math.random() * 4) + "s";
+				heartsBg.appendChild(heart);
+			}
+		}
+	} else {
+		document.body.classList.remove("amour-theme");
+		const heartsBg = document.getElementById("amour-hearts-bg");
+		if (heartsBg) heartsBg.remove();
+	}
 	if (themeToggle) {
 		themeToggle.textContent = isDark ? "Clair" : "Sombre";
 	}
@@ -382,6 +405,10 @@ async function loadProfile() {
 		avatarDataUrlDraft = undefined;
 		bannerDataUrlDraft = undefined;
 		renderPreview(currentProfile);
+		// Appliquer le thème spécial si "amour"
+		if (currentProfile && currentProfile.theme === "amour") {
+			applyTheme("amour");
+		}
 		await Promise.all([
 			loadFriends(),
 			loadNotificationsAndRequests()
@@ -399,7 +426,8 @@ profileForm.addEventListener("submit", async (event) => {
 		const payload = {
 			username: String(profileUsername.value || "").trim(),
 			email: String(profileEmail.value || "").trim(),
-			bio: String(profileBio.value || "").trim()
+			bio: String(profileBio.value || "").trim(),
+			theme: currentProfile && currentProfile.theme ? String(currentProfile.theme) : ""
 		};
 
 		if (avatarDataUrlDraft !== undefined) {
