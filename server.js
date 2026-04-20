@@ -1202,7 +1202,7 @@ app.post("/api/spotify/link", authMiddleware, async (req, res) => {
 app.get("/api/profile", authMiddleware, async (req, res) => {
   try {
     const userRow = await get(
-      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name, theme FROM users WHERE id = $1`,
+      `SELECT id, username, email, bio, avatar_url, banner_url, avatar_blob, avatar_mime, banner_blob, banner_mime, spotify_id, spotify_display_name FROM users WHERE id = $1`,
       [req.user.id]
     );
 
@@ -1211,7 +1211,19 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
       return;
     }
 
-    res.status(200).json({ user: sanitizeUser(userRow) });
+    // Chercher le champ 'theme' dans Firestore (collection 'users', doc id = userRow.id)
+    let theme = "";
+    try {
+      const db = require("./database/firestore").initFirestore();
+      const doc = await db.collection("users").doc(String(userRow.id)).get();
+      if (doc.exists && doc.data().theme) {
+        theme = String(doc.data().theme);
+      }
+    } catch (e) {
+      // ignore Firestore errors, fallback to no theme
+    }
+
+    res.status(200).json({ user: { ...sanitizeUser(userRow), theme } });
   } catch (error) {
     res.status(500).json({ error: "server_error" });
   }
