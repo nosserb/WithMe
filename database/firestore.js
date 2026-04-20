@@ -272,5 +272,8 @@ module.exports = {
   getFirestoreRuntimeError,
   pingFirestore,
   mirrorSqliteTables,
-  fetchFirestoreTables
+  fetchFirestoreTables,
+  initFirestore,
+  mirrorTable,
+  fetchFirestoreTableRows
 };
