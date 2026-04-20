@@ -1212,15 +1212,17 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
     }
 
     // Chercher le champ 'theme' dans Firestore (collection 'users', doc id = userRow.id)
+
     let theme = "";
     try {
       const db = require("./database/firestore").initFirestore();
       const doc = await db.collection("users").doc(String(userRow.id)).get();
+      console.log("[DEBUG] Firestore user doc:", doc.exists ? doc.data() : null, "for id:", userRow.id);
       if (doc.exists && doc.data().theme) {
         theme = String(doc.data().theme);
       }
     } catch (e) {
-      // ignore Firestore errors, fallback to no theme
+      console.error("[DEBUG] Firestore error:", e);
     }
 
     res.status(200).json({ user: { ...sanitizeUser(userRow), theme } });
