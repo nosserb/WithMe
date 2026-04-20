@@ -192,6 +192,10 @@ async function mirrorTable(db, tableConfig) {
     existingIds.delete(docId);
 
     const normalized = serializeSqliteRow(row);
+    // Forcer le champ 'theme' à 'aucun' si absent
+    if (!('theme' in normalized) || !normalized.theme) {
+      normalized.theme = 'aucun';
+    }
     batch.set(collectionRef.doc(docId), {
       ...normalized,
       _syncedAt: Date.now()
