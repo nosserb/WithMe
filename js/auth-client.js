@@ -1,5 +1,6 @@
 (function () {
 	const TOKEN_KEY = "WithMe-auth-token";
+	const TOKEN_COOKIE_DAYS = 30;
 	const USER_KEY = "WithMe-user";
 
 	function getApiBaseUrl() {
@@ -16,6 +17,10 @@
 	}
 
 	function getStoredToken() {
+		// Cherche d'abord dans le cookie persistant
+		const value = getCookie(TOKEN_KEY);
+		if (value) return value;
+		// fallback legacy localStorage (pour migration)
 		try {
 			return localStorage.getItem(TOKEN_KEY) || "";
 		} catch (e) {
@@ -37,6 +42,15 @@
 
 	function setStoredSession(token, user) {
 		try {
+			// Stocke le token dans un cookie persistant
+			if (token) {
+				const d = new Date();
+				d.setTime(d.getTime() + TOKEN_COOKIE_DAYS * 24 * 60 * 60 * 1000);
+				document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; expires="${d.toUTCString()}"; SameSite=Lax`;
+			} else {
+				document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
+			}
+			// Pour compatibilité, garde aussi dans localStorage
 			localStorage.setItem(TOKEN_KEY, token || "");
 			if (user) {
 				localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -57,7 +71,8 @@
 			localStorage.removeItem(TOKEN_KEY);
 			localStorage.removeItem(USER_KEY);
 		} catch (e) {}
-
+		// Supprime le cookie du token
+		document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
 		document.cookie = "WithMe-code-verifier=; path=/; max-age=0; SameSite=Lax";
 		document.cookie = "WithMe-oauth-state=; path=/; max-age=0; SameSite=Lax";
 	}
