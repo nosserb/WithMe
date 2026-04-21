@@ -1272,26 +1272,36 @@ if (themeToggle) {
 
 (async function bootHomePage() {
 	initTheme();
-	initHeaderProfile();
-	initDmFriendsPanel();
+
+	// Mode public/no-sync : pas d'appel API privé
+	const isNoSync = localStorage.getItem("WithMe-no-sync") === "1" || window.location.search.includes("nosync=1");
+	const user = window.WithMeAuth && window.WithMeAuth.getStoredUser && window.WithMeAuth.getStoredUser();
+
+	if (!user || isNoSync) {
+		// Dashboard public : pas de profil, pas d'amis
+		if (headerProfileName) headerProfileName.textContent = "Visiteur";
+		if (headerProfileEmail) headerProfileEmail.textContent = "Mode public";
+		if (headerProfileAvatar) headerProfileAvatar.src = PROFILE_FALLBACK_AVATAR;
+		if (dmFriendsMeta) dmFriendsMeta.textContent = "Non connecté";
+		if (dmFriendsList) dmFriendsList.innerHTML = '<li class="dm-friend-empty">Connecte-toi pour voir tes amis.</li>';
+	} else {
+		initHeaderProfile();
+		initDmFriendsPanel();
+	}
+
 	await handleSpotifyOAuthCallbackOnHome();
 	initWelcome();
 	initSpotifyHomeData();
 	startProgressLoop();
+
 	// --- Auto-check Spotify session ---
 	if (window.WithMeAuth && window.WithMeSpotify && typeof window.WithMeSpotify.getValidSpotifyToken === "function") {
 		const clientId = window.WITHME_CONFIG?.spotifyClientId || "";
-		// Vérifie si l'utilisateur est connecté WithMe
-		const user = window.WithMeAuth.getStoredUser && window.WithMeAuth.getStoredUser();
 		if (user) {
-			// Vérifie si un token Spotify valide existe
 			window.WithMeSpotify.getValidSpotifyToken(clientId).then(token => {
 				if (!token) {
-					// Si pas de token, on peut afficher un message ou un bouton pour relier Spotify si besoin
-					// (optionnel: afficher une UI ou log)
 					console.log("Spotify non lié : propose la connexion");
 				} else {
-					// Spotify déjà lié, rien à faire
 					console.log("Spotify déjà lié, session OK");
 				}
 			});
