@@ -79,27 +79,63 @@ async function initTrackPage() {
 		return;
 	}
 
-	if (!SPOTIFY_CLIENT_ID) {
-		setStatus("spotifyClientId manquant dans spotify-config.js", true);
-		return;
+	// Mode fallback si pas de Spotify
+	let track = null;
+	let usedFallback = false;
+	if (!SPOTIFY_CLIENT_ID || !window.WithMeSpotify || !window.WithMeSpotify.getValidSpotifyToken) {
+		usedFallback = true;
+	}
+	let token = null;
+	if (!usedFallback) {
+		token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+		if (!token) usedFallback = true;
 	}
 
-	const token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
-	if (!token) {
-		setStatus("Connecte-toi d'abord via login Spotify.", true);
-		return;
+	if (!usedFallback) {
+		try {
+			track = await window.WithMeSpotify.spotifyGet(`/tracks/${encodeURIComponent(id)}`, token);
+			renderTrack(track);
+			setStatus("Morceau charge.");
+			return;
+		} catch (error) {
+			if (String(error.message).includes("spotify_unauthorized")) {
+				window.WithMeSpotify.clearSpotifyStoredAuth();
+				setStatus("Session Spotify expiree. Reconnecte-toi.", true);
+				return;
+			}
+			// Si erreur, tente fallback
+			usedFallback = true;
+		}
 	}
 
+	// Fallback MusicBrainz
 	try {
-		const track = await window.WithMeSpotify.spotifyGet(`/tracks/${encodeURIComponent(id)}`, token);
-		renderTrack(track);
-		setStatus("Morceau charge.");
-	} catch (error) {
-		if (String(error.message).includes("spotify_unauthorized")) {
-			window.WithMeSpotify.clearSpotifyStoredAuth();
-			setStatus("Session Spotify expiree. Reconnecte-toi.", true);
+		if (window.searchMusicBrainzTracks) {
+			const results = await window.searchMusicBrainzTracks(id, 1); // id = MBID ou nom
+			track = results && results[0];
+		}
+		if (!track) {
+			setStatus("Morceau introuvable sur MusicBrainz.", true);
 			return;
 		}
+		// Adapter le format pour renderTrack
+		const cover = track.coverUrl || (window.getAlbumCoverUrl ? window.getAlbumCoverUrl(track.releaseGroupId) : "img/cover-electric.svg");
+		const artists = [{ name: track.artist, id: "" }];
+		const album = track.album || "-";
+		const releaseDate = "-";
+		const popularity = "-";
+		const preview = "";
+		renderTrack({
+			name: track.title,
+			artists,
+			album: { name: album },
+			duration_ms: track.duration_ms,
+			popularity,
+			preview_url: preview,
+			album: { images: [{ url: cover }], name: album, release_date: releaseDate }
+		});
+		setStatus("Morceau charge (MusicBrainz).", false);
+	} catch (e) {
 		setStatus("Impossible de charger ce morceau.", true);
 	}
 }
