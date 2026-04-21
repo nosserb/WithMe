@@ -186,6 +186,11 @@ function renderAlbums(albums) {
 
 async function fetchConcerts(artistName) {
 	concertList.innerHTML = "";
+	// Récupère la photo d'artiste pour l'affichage concert
+	let artistPhoto = "img/artist-focus.svg";
+	if (window.getArtistPhotoUrl && getArtistId()) {
+		artistPhoto = window.getArtistPhotoUrl(getArtistId());
+	}
 	const ticketmasterKey = (
 		window.WITHME_CONFIG?.TicketmasterKey
 		|| window.WITHME_CONFIG?.ticketmasterKey
@@ -297,8 +302,7 @@ async function fetchConcerts(artistName) {
 				.slice(0, 140);
 			const chatKey = eventId ? `tm:${eventId}` : `local:${fallbackKey || "concert"}`;
 			const chatUrl = `concert-chat.html?concertKey=${encodeURIComponent(chatKey)}&artist=${encodeURIComponent(artistName || "Artiste")}`;
-
-			li.innerHTML = `<strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span> <a class="inline-link" href="${chatUrl}">Ouvrir le chat</a>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
+			li.innerHTML = `<img src="${artistPhoto}" alt="${artistName}" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;object-fit:cover;" /> <strong>${formattedDate}</strong><span>${venue} · ${city}${country ? `, ${country}` : ""}</span> <a class="inline-link" href="${chatUrl}">Ouvrir le chat</a>${ticketUrl ? ` <a class="inline-link" href="${ticketUrl}" target="_blank" rel="noopener noreferrer">Billets</a>` : ""}`;
 			concertList.appendChild(li);
 		});
 	} catch (error) {
@@ -633,143 +637,162 @@ async function initArtistPage() {
 	const nameHint = getArtistNameHint();
 	const artistSeed = getArtistSeedFromQuery();
 	const artistCacheSeed = getCachedArtistSeed(id, nameHint);
-	if (!id) {
-		setStatus("Aucun id artiste fourni.", true);
+	if (!id && !nameHint) {
+		setStatus("Aucun id ou nom artiste fourni.", true);
 		return;
 	}
 
-	if (!SPOTIFY_CLIENT_ID) {
-		setStatus("spotifyClientId manquant dans spotify-config.js", true);
-		return;
+	let usedFallback = false;
+	let token = null;
+	if (!SPOTIFY_CLIENT_ID || !window.WithMeSpotify || !window.WithMeSpotify.getValidSpotifyToken) {
+		usedFallback = true;
+	}
+	if (!usedFallback) {
+		token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+		if (!token) usedFallback = true;
 	}
 
-	const token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
-	if (!token) {
-		setStatus("Connecte-toi d'abord via login Spotify.", true);
-		return;
-	}
-
-	try {
-		const settled = await Promise.allSettled([
-			window.WithMeSpotify.spotifyGet(`/artists/${encodeURIComponent(id)}`, token),
-			fetchArtistTopTracksWithFallback(id, token)
-		]);
-
-		let initialArtist = settled[0].status === "fulfilled" ? settled[0].value : null;
-		const artistRequestForbidden = settled[0].status === "rejected" && isSpotifyForbiddenError(settled[0].reason);
-		if (!initialArtist && !artistRequestForbidden) {
-			initialArtist = await fetchArtistBySeveralEndpoint(id, token);
-		}
-		if (!initialArtist && artistSeed) {
-			initialArtist = artistSeed;
-		}
-		if (!initialArtist && artistCacheSeed) {
-			initialArtist = artistCacheSeed;
-		}
-		if (!initialArtist) {
-			if (artistRequestForbidden) {
-				throw settled[0].reason;
-			}
-			throw settled[0].status === "rejected" ? settled[0].reason : new Error("spotify_error_404");
-		}
-
-		if (artistSeed) {
-			initialArtist = mergeArtistStats(initialArtist, artistSeed);
-		}
-		if (artistCacheSeed) {
-			initialArtist = mergeArtistStats(initialArtist, artistCacheSeed);
-		}
-
-		let artist = initialArtist;
-		if (needsArtistEnrichment(artist)) {
-			try {
-				artist = await enrichArtistDataByName(artist, token);
-			} catch (e) {}
-		}
-		if (needsArtistEnrichment(artist) && nameHint) {
-			try {
-				artist = await enrichArtistDataByName({ name: nameHint }, token);
-			} catch (e) {}
-		}
-		if (isArtistStatsMissing(artist)) {
-			try {
-				artist = await enrichArtistStatsBySearch(artist, token, nameHint, artist?.id || id);
-			} catch (e) {}
-		}
-
-		const primaryNameForStats = artist?.name || nameHint;
-		if (primaryNameForStats) {
-			try {
-				const bestCandidate = await fetchBestArtistCandidate(primaryNameForStats, token, artist?.id || id);
-				artist = promoteArtistWithBestCandidate(artist, bestCandidate);
-			} catch (e) {}
-		}
-		let topTracks = settled[1].status === "fulfilled" ? settled[1].value : [];
-		const topTracksForbidden = settled[1].status === "rejected" && isSpotifyForbiddenError(settled[1].reason);
-		let topTracksRecovered = false;
-
-		if (!topTracksForbidden && (artist?.id || "") !== (initialArtist?.id || "") && !topTracks.length) {
-			try {
-				topTracks = await fetchArtistTopTracksWithFallback(artist.id, token);
-				topTracksRecovered = topTracks.length > 0;
-			} catch (e) {}
-		}
-		if (!topTracksForbidden && !topTracks.length) {
-			try {
-				topTracks = await fetchTopTracksBySearchFallback(artist, token);
-				topTracksRecovered = topTracks.length > 0;
-			} catch (e) {}
-		}
-
-		renderArtist(artist, topTracks);
-
+	if (!usedFallback) {
 		try {
-			const albums = await fetchArtistAlbumsWithFallback(artist.id || id, token);
-			renderAlbums(albums);
-		} catch (e) {
-			renderAlbums([]);
-		}
+			const settled = await Promise.allSettled([
+				window.WithMeSpotify.spotifyGet(`/artists/${encodeURIComponent(id)}`, token),
+				fetchArtistTopTracksWithFallback(id, token)
+			]);
 
+			let initialArtist = settled[0].status === "fulfilled" ? settled[0].value : null;
+			const artistRequestForbidden = settled[0].status === "rejected" && isSpotifyForbiddenError(settled[0].reason);
+			if (!initialArtist && !artistRequestForbidden) {
+				initialArtist = await fetchArtistBySeveralEndpoint(id, token);
+			}
+			if (!initialArtist && artistSeed) {
+				initialArtist = artistSeed;
+			}
+			if (!initialArtist && artistCacheSeed) {
+				initialArtist = artistCacheSeed;
+			}
+			if (!initialArtist) {
+				if (artistRequestForbidden) {
+					throw settled[0].reason;
+				}
+				throw settled[0].status === "rejected" ? settled[0].reason : new Error("spotify_error_404");
+			}
+
+			if (artistSeed) {
+				initialArtist = mergeArtistStats(initialArtist, artistSeed);
+			}
+			if (artistCacheSeed) {
+				initialArtist = mergeArtistStats(initialArtist, artistCacheSeed);
+			}
+
+			let artist = initialArtist;
+			if (needsArtistEnrichment(artist)) {
+				try {
+					artist = await enrichArtistDataByName(artist, token);
+				} catch (e) {}
+			}
+			if (needsArtistEnrichment(artist) && nameHint) {
+				try {
+					artist = await enrichArtistDataByName({ name: nameHint }, token);
+				} catch (e) {}
+			}
+			if (isArtistStatsMissing(artist)) {
+				try {
+					artist = await enrichArtistStatsBySearch(artist, token, nameHint, artist?.id || id);
+				} catch (e) {}
+			}
+
+			const primaryNameForStats = artist?.name || nameHint;
+			if (primaryNameForStats) {
+				try {
+					const bestCandidate = await fetchBestArtistCandidate(primaryNameForStats, token, artist?.id || id);
+					artist = promoteArtistWithBestCandidate(artist, bestCandidate);
+				} catch (e) {}
+			}
+			let topTracks = settled[1].status === "fulfilled" ? settled[1].value : [];
+			const topTracksForbidden = settled[1].status === "rejected" && isSpotifyForbiddenError(settled[1].reason);
+			let topTracksRecovered = false;
+
+			if (!topTracksForbidden && (artist?.id || "") !== (initialArtist?.id || "") && !topTracks.length) {
+				try {
+					topTracks = await fetchArtistTopTracksWithFallback(artist.id, token);
+					topTracksRecovered = topTracks.length > 0;
+				} catch (e) {}
+			}
+			if (!topTracksForbidden && !topTracks.length) {
+				try {
+					topTracks = await fetchTopTracksBySearchFallback(artist, token);
+					topTracksRecovered = topTracks.length > 0;
+				} catch (e) {}
+			}
+
+			renderArtist(artist, topTracks);
+
+			try {
+				const albums = await fetchArtistAlbumsWithFallback(artist.id || id, token);
+				renderAlbums(albums);
+			} catch (e) {
+				renderAlbums([]);
+			}
+
+			await fetchConcerts(artist.name);
+			cacheArtistStats(artist);
+
+			if (topTracksForbidden) {
+				setStatus("Artiste charge. Les top morceaux ne sont pas accessibles avec ce token Spotify (403).", true);
+				return;
+			}
+
+			if (settled[1].status === "rejected" && !topTracksRecovered && !topTracks.length) {
+				setStatus("Artiste charge. Top morceaux indisponibles pour le moment.", true);
+				return;
+			}
+
+			if (isArtistStatsMissing(artist)) {
+				setStatus("Artiste charge. Certaines stats ne sont pas fournies par Spotify sur cet endpoint.");
+				return;
+			}
+
+			setStatus("Artiste charge.");
+			return;
+		} catch (error) {
+			if (String(error.message).includes("spotify_unauthorized")) {
+				window.WithMeSpotify.clearSpotifyStoredAuth();
+				setStatus("Session Spotify expiree. Reconnecte-toi.", true);
+				return;
+			}
+
+			// Si erreur, tente fallback
+			usedFallback = true;
+		}
+	}
+
+	// Fallback MusicBrainz
+	try {
+		let artist = null;
+		if (window.searchMusicBrainzArtists) {
+			const results = await window.searchMusicBrainzArtists(nameHint || id, 1);
+			artist = results && results[0];
+		}
+		if (!artist) {
+			setStatus("Artiste introuvable sur MusicBrainz.", true);
+			return;
+		}
+		// Top tracks
+		let topTracks = [];
+		if (window.searchMusicBrainzTracks) {
+			topTracks = await window.searchMusicBrainzTracks(`artist:${artist.name}`, 5);
+		}
+		renderArtist(artist, topTracks);
+		// Albums
+		// MusicBrainz n’a pas d’API simple pour albums, mais on peut afficher les titres d’albums des tracks
+		const albumsList = document.getElementById("albumsList");
+		if (albumsList && topTracks.length) {
+			const uniqueAlbums = Array.from(new Set(topTracks.map(t => t.album).filter(Boolean)));
+			albumsList.innerHTML = uniqueAlbums.length ? uniqueAlbums.map(album => `<li>${album}</li>`).join("") : "<li>Aucun album disponible.</li>";
+		}
 		await fetchConcerts(artist.name);
-		cacheArtistStats(artist);
-
-		if (topTracksForbidden) {
-			setStatus("Artiste charge. Les top morceaux ne sont pas accessibles avec ce token Spotify (403).", true);
-			return;
-		}
-
-		if (settled[1].status === "rejected" && !topTracksRecovered && !topTracks.length) {
-			setStatus("Artiste charge. Top morceaux indisponibles pour le moment.", true);
-			return;
-		}
-
-		if (isArtistStatsMissing(artist)) {
-			setStatus("Artiste charge. Certaines stats ne sont pas fournies par Spotify sur cet endpoint.");
-			return;
-		}
-
-		setStatus("Artiste charge.");
-	} catch (error) {
-		if (String(error.message).includes("spotify_unauthorized")) {
-			window.WithMeSpotify.clearSpotifyStoredAuth();
-			setStatus("Session Spotify expiree. Reconnecte-toi.", true);
-			return;
-		}
-
-		const spotifyError = parseSpotifyError(error?.message || "");
-		if (spotifyError?.statusCode === 429) {
-			setStatus("Spotify limite temporairement les requetes. Reessaie dans quelques secondes.", true);
-			return;
-		}
-		if (spotifyError?.statusCode === 403) {
-			setStatus("Spotify refuse l'acces a certaines donnees artistes (403). Reconnecte-toi ou verifie les droits de l'application.", true);
-			return;
-		}
-		if (spotifyError?.statusCode === 404) {
-			setStatus("Artiste introuvable sur Spotify.", true);
-			return;
-		}
-
+		setStatus("Artiste charge (MusicBrainz).", false);
+	} catch (e) {
 		setStatus("Impossible de charger cet artiste.", true);
 	}
 }
