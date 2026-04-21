@@ -109,8 +109,11 @@ function msToMinSec(ms) {
 }
 
 function createTrackCard(track) {
-	const artists = (track.artists || []).map((a) => a.name).join(", ");
-	const cover = track.album?.images?.[0]?.url || "img/cover-electric.svg";
+	// Support MusicBrainz fallback (coverUrl, artist string)
+	const isMusicBrainz = !!track.coverUrl;
+	const artists = Array.isArray(track.artists) ? track.artists.map((a) => a.name).join(", ") : (track.artist || "Artiste inconnu");
+	const cover = isMusicBrainz ? track.coverUrl : (track.album?.images?.[0]?.url || "img/cover-electric.svg");
+	const albumName = isMusicBrainz ? (track.album || "-") : (track.album?.name || "-");
 	const card = document.createElement("article");
 	card.className = "result-card";
 	card.innerHTML = `
@@ -118,7 +121,7 @@ function createTrackCard(track) {
 		<div>
 			<h4>${track.name}</h4>
 			<p>${artists || "Artiste inconnu"}</p>
-			<small>Album: ${track.album?.name || "-"} · ${msToMinSec(track.duration_ms)}</small>
+			<small>Album: ${albumName} · ${msToMinSec(track.duration_ms)}</small>
 		</div>
 		<a class="detail-link" href="track.html?id=${encodeURIComponent(track.id)}">Voir la fiche</a>
 	`;
@@ -126,7 +129,12 @@ function createTrackCard(track) {
 }
 
 function createArtistCard(artist) {
-	const cover = artist.images?.[0]?.url || "img/artist-focus.svg";
+	// Support MusicBrainz fallback (fanart.tv)
+	let cover = artist.images?.[0]?.url || "";
+	if (!cover && artist.id && window.getArtistPhotoUrl) {
+		cover = window.getArtistPhotoUrl(artist.id);
+	}
+	if (!cover) cover = "img/artist-focus.svg";
 	const followers = new Intl.NumberFormat("fr-FR").format(artist.followers?.total || 0);
 	const artistName = artist.name || "";
 	const followersRaw = String(Number(artist.followers?.total || 0));
