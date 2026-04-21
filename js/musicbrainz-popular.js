@@ -21,6 +21,26 @@ async function fetchPopularTracksFromMusicBrainz(limit = 10) {
 
 // Affiche les musiques populaires dans la grille rapide
 async function showPopularTracksIfNoSpotify() {
+    // Si mode no-sync, toujours afficher MusicBrainz
+    if (localStorage.getItem("WithMe-no-sync") === "1" || window.location.search.includes("nosync=1")) {
+        const quickCards = Array.from(document.querySelectorAll('.quick-card'));
+        try {
+            const tracks = await fetchPopularTracksFromMusicBrainz(quickCards.length);
+            quickCards.forEach((card, i) => {
+                const track = tracks[i];
+                if (track) {
+                    card.querySelector('span').textContent = track.title;
+                    card.querySelector('p')?.textContent = track.artist;
+                    card.querySelector('img').src = 'img/artist-focus.svg';
+                    card.querySelector('img').alt = track.title;
+                }
+            });
+        } catch (e) {
+            // fallback silencieux
+        }
+        return;
+    }
+    // Sinon, fallback si pas de session Spotify
     if (window.WithMeAuth && window.WithMeAuth.hasSpotifySession && window.WithMeAuth.hasSpotifySession()) {
         return;
     }
