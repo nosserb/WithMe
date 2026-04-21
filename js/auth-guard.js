@@ -4,6 +4,11 @@
 		return;
 	}
 
+	// Autorise l'accès si mode no-sync
+	if (localStorage.getItem("WithMe-no-sync") === "1" || window.location.search.includes("nosync=1")) {
+		return;
+	}
+
 	const loginUrl = window.WithMeAuth.getLoginUrl();
 	const currentPath = String(window.location.pathname || "").toLowerCase();
 	const isSearchPage = currentPath.endsWith("/search.html") || currentPath.endsWith("search.html");
