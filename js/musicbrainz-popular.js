@@ -14,10 +14,14 @@ async function fetchPopularTracksFromMusicBrainz(limit = 10) {
     }
     const data = await response.json();
     return (data.recordings || []).map(function(rec) {
+        // Cherche le release-group MBID pour la pochette
+        const releaseGroupId = rec["releases"]?.[0]?.["release-group"] || rec["releases"]?.[0]?.id || "";
         return {
             title: rec.title,
             artist: (rec["artist-credit"] && rec["artist-credit"][0] && rec["artist-credit"][0].name) ? rec["artist-credit"][0].name : 'Artiste inconnu',
-            mbid: rec.id
+            mbid: rec.id,
+            releaseGroupId,
+            coverUrl: window.getAlbumCoverUrl ? window.getAlbumCoverUrl(releaseGroupId) : 'img/cover-electric.svg'
         };
     });
 }
@@ -37,7 +41,7 @@ async function showPopularTracksIfNoSpotify() {
                     card.querySelector('span').textContent = track.title;
                     var artistEl = card.querySelector('p');
                     if (artistEl) artistEl.textContent = track.artist;
-                    card.querySelector('img').src = 'img/artist-focus.svg';
+                    card.querySelector('img').src = track.coverUrl || 'img/cover-electric.svg';
                     card.querySelector('img').alt = track.title;
                 }
             });
