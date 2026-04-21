@@ -50,6 +50,29 @@ function apiUrl(path) {
 function applyTheme(mode) {
 	const isDark = mode === "dark";
 	document.body.classList.toggle("dark-mode", isDark);
+	// Thème spécial "amour"
+	if (mode === "amour") {
+		document.body.classList.add("amour-theme");
+		if (!document.getElementById("amour-hearts-bg")) {
+			const heartsBg = document.createElement("div");
+			heartsBg.id = "amour-hearts-bg";
+			heartsBg.innerHTML = "";
+			document.body.appendChild(heartsBg);
+			// Animation des coeurs
+			for (let i = 0; i < 20; i++) {
+				const heart = document.createElement("div");
+				heart.className = "heart-animated";
+				heart.style.left = Math.random() * 100 + "%";
+				heart.style.animationDelay = (Math.random() * 4) + "s";
+				heart.style.animationDuration = (3 + Math.random() * 4) + "s";
+				heartsBg.appendChild(heart);
+			}
+		}
+	} else {
+		document.body.classList.remove("amour-theme");
+		const heartsBg = document.getElementById("amour-hearts-bg");
+		if (heartsBg) heartsBg.remove();
+	}
 	if (themeToggle) {
 		themeToggle.textContent = isDark ? "Clair" : "Sombre";
 	}
