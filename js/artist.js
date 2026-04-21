@@ -659,16 +659,18 @@ async function initArtistPage() {
 				fetchArtistTopTracksWithFallback(id, token)
 			]);
 
-			let initialArtist = settled[0].status === "fulfilled" ? settled[0].value : null;
-			const artistRequestForbidden = settled[0].status === "rejected" && isSpotifyForbiddenError(settled[0].reason);
-			if (!initialArtist && !artistRequestForbidden) {
-				initialArtist = await fetchArtistBySeveralEndpoint(id, token);
-			}
-			if (!initialArtist && artistSeed) {
-				initialArtist = artistSeed;
-			}
-			if (!initialArtist && artistCacheSeed) {
+	let usedFallback = false;
+	let token = null;
+	let isSpotify = false;
+	if (SPOTIFY_CLIENT_ID && window.WithMeSpotify && window.WithMeSpotify.getValidSpotifyToken) {
+		token = await window.WithMeSpotify.getValidSpotifyToken(SPOTIFY_CLIENT_ID);
+		if (token) isSpotify = true;
+		else usedFallback = true;
+	} else {
+		usedFallback = true;
+	}
 				initialArtist = artistCacheSeed;
+	if (isSpotify) {
 			}
 			if (!initialArtist) {
 				if (artistRequestForbidden) {
