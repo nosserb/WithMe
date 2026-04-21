@@ -67,6 +67,16 @@ function getUserIdFromQuery() {
 }
 
 function renderUserProfile(profile) {
+		// Appliquer le thème spécial si défini
+		if (profile && profile.theme === "amour") {
+			applyTheme("amour");
+		}
+		else {
+			// Sinon, revenir au thème utilisateur local
+			const storedTheme = getCookie("WithMe-theme");
+			const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
+		}
 	const username = String(profile?.username || "Utilisateur").trim() || "Utilisateur";
 	const email = String(profile?.email || "").trim() || "Compte WithMe";
 	const bio = String(profile?.bio || "").trim() || "Aucune bio.";

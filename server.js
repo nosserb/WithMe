@@ -1466,6 +1466,18 @@ app.get("/api/users/:id", authMiddleware, async (req, res) => {
       ? { hasIncomingRequest: false, hasOutgoingRequest: false }
       : await getPendingFriendRequestRelation(req.user.id, userId);
 
+    // Chercher le champ 'theme' dans Firestore (collection 'users', doc id = row.id)
+    let theme = "";
+    try {
+      const db = require("./database/firestore").initFirestore();
+      const doc = await db.collection("users").doc(String(row.id)).get();
+      if (doc.exists && doc.data().theme) {
+        theme = String(doc.data().theme);
+      }
+    } catch (e) {
+      // ignore Firestore errors
+    }
+
     res.status(200).json({
       user: {
         id: row.id,
@@ -1476,6 +1488,7 @@ app.get("/api/users/:id", authMiddleware, async (req, res) => {
         bannerUrl,
         spotifyLinked: Boolean(row.spotify_id),
         spotifyDisplayName: row.spotify_display_name || "",
+        theme,
         friendship: {
           isSelf,
           isFriend,
