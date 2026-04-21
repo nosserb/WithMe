@@ -206,5 +206,12 @@
 	<script src="js/header-auth.js?v=20260401-authfix4"></script>
 	<script src="js/auth-guard.js?v=20260401-authfix4"></script>
 	<script src="js/script.js?v=20260418-ratefix6"></script>
+<script src="js/musicbrainz-popular.js?v=20260421-nosync"></script>
+<script>
+	// Si accès sans sync, affiche des musiques populaires
+	if (localStorage.getItem("WithMe-no-sync") === "1" || window.location.search.includes("nosync=1")) {
+		window.showPopularTracksIfNoSpotify && window.showPopularTracksIfNoSpotify();
+	}
+</script>
 </body>
 </html>

@@ -196,6 +196,7 @@
 			<button id="loginBtn" class="secondary" type="button" style="margin-top: 8px; width: 100%;">Se connecter</button>
 		</div>
 
+
 		<div class="panel">
 			<h2 class="step-title">Etape 2 · Connexion Spotify</h2>
 			<p id="withMeState">Compte WithMe non connecte.</p>
@@ -203,6 +204,10 @@
 			<div class="music-provider-row">
 				<button type="button" class="secondary" disabled aria-disabled="true" title="Bientot disponible">Sync Deezer (bientot)</button>
 				<button type="button" class="secondary" disabled aria-disabled="true" title="Bientot disponible">Sync Amazon Music (bientot)</button>
+			</div>
+			<div style="margin-top: 12px; text-align: center;">
+				<button id="noSyncBtn" type="button" class="secondary" style="width: 100%; background: #f7e6e6; color: #b23a48; border: 1px solid #e1bfcf;">Je ne peux pas synchroniser Spotify</button>
+				<div id="noSyncInfo" class="status" style="display:none; color:#b23a48; margin-top:8px;">Accès sans synchronisation Spotify activé. Des musiques populaires seront affichées.</div>
 			</div>
 		</div>
 
@@ -213,6 +218,7 @@
 
 	<script src="js/spotify-config.js?v=20260401-authfix4"></script>
 	<script src="js/auth-client.js?v=20260401-authfix4"></script>
+	<script src="js/musicbrainz-popular.js?v=20260421-nosync"></script>
 	<script>
 		const registerForm = document.getElementById("registerForm");
 		const registerUsername = document.getElementById("registerUsername");
@@ -514,6 +520,20 @@
 			setStatus("Redirection vers Spotify...");
 			await startSpotifyLogin(SPOTIFY_CLIENT_ID);
 		});
+
+		const noSyncBtn = document.getElementById("noSyncBtn");
+		const noSyncInfo = document.getElementById("noSyncInfo");
+
+		if (noSyncBtn) {
+			noSyncBtn.addEventListener("click", () => {
+				// Simule une session sans Spotify
+				localStorage.setItem("WithMe-no-sync", "1");
+				if (noSyncInfo) noSyncInfo.style.display = "block";
+				setTimeout(() => {
+					window.location.href = "index.html?nosync=1";
+				}, 900);
+			});
+		}
 
 		(async () => {
 			const urlParams = new URLSearchParams(window.location.search);
